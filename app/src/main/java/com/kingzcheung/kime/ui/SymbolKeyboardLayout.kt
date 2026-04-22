@@ -2,6 +2,7 @@ package com.kingzcheung.kime.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
@@ -53,13 +54,14 @@ fun SymbolKeyboardLayout(
     val currentPage = symbolPages.getOrElse(currentPageIndex) { symbolPages[0] }
     val hasMorePages = symbolPages.size > currentPageIndex + 1
     
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(keyboardBackgroundColor)
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
+    Box(modifier = modifier.background(keyboardBackgroundColor)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(keyboardBackgroundColor)
+                .padding(vertical = 8.dp, horizontal = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
         currentPage.forEach { symbolRow ->
             Row(
                 modifier = Modifier
@@ -153,6 +155,7 @@ SwipeableIconKeyButton(
             onLongClick = { onKeyPress("delete") },
             onPress = { onKeyPressDown?.invoke("delete") }
         )
+        }
         }
     }
 }

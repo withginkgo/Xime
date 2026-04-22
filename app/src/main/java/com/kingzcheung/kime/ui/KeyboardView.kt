@@ -333,6 +333,7 @@ onHideKeyboard = {
                                     keyTextColor = keyTextColor,
                                     specialKeyBackgroundColor = specialKeyBgColor,
                                     keyboardBackgroundColor = keyboardBgColor,
+                                    modifier = Modifier.weight(1f),
                                     onKeyPressDown = onKeyPressDown
                                 )
                             }
