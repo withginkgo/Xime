@@ -915,7 +915,7 @@ fun KeyEffectSettingsContent(
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "按键下滑时显示字根拆分提示",
+                                text = "按键下滑时显示字根拆分提示。注意,只支持显示86版本的字根",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
