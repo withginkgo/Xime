@@ -368,15 +368,15 @@ fun KeyboardLayout(
                     )
                 } else {
                     SwipeableKeyButton(
-                        text = if (isAsciiMode) "," else "，",
-                        onClick = { onKeyPress(if (isAsciiMode) "," else "，") },
+                        text = if (isAsciiMode) "." else "，",
+                        onClick = { onKeyPress(if (isAsciiMode) "." else "，") },
                         backgroundColor = keyBackgroundColor,
                         textColor = keyTextColor,
                         modifier = Modifier.weight(0.8f),
-                        swipeText = if (isAsciiMode) "." else "。",
+                        swipeText = if (isAsciiMode) "," else "。",
                         onSwipe = { onSwipeText -> onKeyPress(onSwipeText) },
                         onSwipeStateChange = { state, bounds -> processSwipeState(state, bounds) },
-                        onPress = { onKeyPressDown?.invoke(if (isAsciiMode) "." else "。") }
+                        onPress = { onKeyPressDown?.invoke(if (isAsciiMode) "," else "。") }
                     )
                     
                     KeyButton(
