@@ -29,6 +29,8 @@ object SettingsPreferences {
     
     private const val KEY_SWIPE_DOWN_SHOW_ROOTS = "swipe_down_show_roots"
     
+    private const val KEY_LAYOUT_PREFIX = "layout_pref_"
+    
     private const val KEY_KEYBOARD_HEIGHT_DP = "keyboard_height_dp"
     private const val DEFAULT_KEYBOARD_HEIGHT_DP = 290
     
@@ -194,6 +196,16 @@ object SettingsPreferences {
     
     fun setSwipeDownShowRootsEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_SWIPE_DOWN_SHOW_ROOTS, enabled).apply()
+    }
+    
+    /** 获取方案偏好的键盘布局，默认全键盘 */
+    fun getLayoutPreference(context: Context, schemaId: String): String {
+        return getPrefs(context).getString("$KEY_LAYOUT_PREFIX$schemaId", "full") ?: "full"
+    }
+    
+    /** 保存方案偏好的键盘布局 */
+    fun setLayoutPreference(context: Context, schemaId: String, layout: String) {
+        getPrefs(context).edit().putString("$KEY_LAYOUT_PREFIX$schemaId", layout).apply()
     }
     
     fun getKeyboardHeightDp(context: Context): Int {

@@ -55,6 +55,14 @@ object SchemaConfigHelper {
             author = "王永民",
             description = "五笔字形98版",
             downloadUrl = "https://s.ximei.me/rime-wubi"
+        ),
+        BuiltInSchema(
+            schemaId = "t9_pinyin",
+            name = "拼音九键",
+            version = "1.0",
+            author = "Rime",
+            description = "拼音九键输入（与简体拼音共享字典）",
+            downloadUrl = null
         )
     )
     
@@ -71,12 +79,14 @@ object SchemaConfigHelper {
         return schemaListIds.mapNotNull { schemaId ->
             val builtIn = getSchemaById(schemaId)
             if (builtIn != null) {
+                val layouts = SchemaLayoutHelper.getSupportedLayouts(context, schemaId)
                 SchemaInfo(
                     schemaId = builtIn.schemaId,
                     name = builtIn.name,
                     version = builtIn.version,
                     author = builtIn.author,
-                    description = builtIn.description
+                    description = builtIn.description,
+                    supportedLayouts = layouts
                 )
             } else {
                 Log.w(TAG, "Unknown schema in default.yaml: $schemaId")

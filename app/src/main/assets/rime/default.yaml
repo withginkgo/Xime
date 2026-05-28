@@ -8,6 +8,7 @@ schema_list:
   - schema: wubi86_pinyin
   - schema: pinyin_simp
   - schema: wubi98
+  - schema: t9_pinyin
 
 switcher:
   caption: "〔方案选单〕"

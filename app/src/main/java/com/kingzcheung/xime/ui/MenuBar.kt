@@ -87,7 +87,7 @@ fun MenuBar(
         MenuItem(rememberVectorPainter(Icons.TwoTone.EmojiEmotions), "表情", onEmoji),
         MenuItem(rememberVectorPainter(if (isDarkTheme) Icons.TwoTone.LightMode else Icons.TwoTone.DarkMode), if (isDarkTheme) "浅色模式" else "深色模式", onToggleDarkMode),
         MenuItem(rememberVectorPainter(Icons.TwoTone.Rotate90DegreesCcw), "部署方案", onReloadConfig),
-        MenuItem(rememberVectorPainter(Icons.TwoTone.Keyboard), "输入方案", onSchemaList),
+        MenuItem(rememberVectorPainter(Icons.TwoTone.Keyboard), "键盘选择", onSchemaList),
         MenuItem(rememberVectorPainter(Icons.TwoTone.Settings), "设置", onSettings)
     )
     Column(

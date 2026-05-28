@@ -44,6 +44,7 @@ import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.SchemaConfigHelper
+import com.kingzcheung.xime.settings.SchemaLayoutHelper
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.KeyboardView
 import com.kingzcheung.xime.ui.KeysConfigHelper
@@ -55,6 +56,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
@@ -83,6 +86,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private lateinit var keyboardContainer: VoiceKeyboardContainer
     
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    /** 序列化 rimeEngine JNI 调用（非线程安全） */
+    private val rimeMutex = Mutex()
     
     private val mainHandler = Handler(Looper.getMainLooper())
     
@@ -212,6 +217,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         // 导致按键上的符号不显示、上滑/下滑手势不触发。
         KeysConfigHelper.loadConfig(this)
         
+        // 每次启动同步 assets 中的 .yaml 文件到共享目录（确保新 schema 生效）
+        RimeConfigHelper.syncAssets(this)
+        
         RimeEngine.setDeploymentCallback { isDeploying, message ->
             serviceScope.launch(Dispatchers.Main) {
                 uiState.value = uiState.value.copy(
@@ -224,16 +232,28 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         if (RimeEngine.isInitialized()) {
             Log.d(TAG, "initRimeEngine: Engine already initialized, setting up schema...")
             serviceScope.launch(Dispatchers.IO) {
-                val sessionReady = rimeEngine.ensureSession()
-                if (sessionReady) {
-                    Log.d(TAG, "initRimeEngine: Session ready (from prewarm)")
+                rimeEngine.ensureSession()
+                // 检测是否有新 schema 需要编译 prism
+                val buildDir = File(filesDir, "rime/user/build")
+                val availableSchemas = rimeEngine.getAvailableSchemas().toSet()
+                if (buildDir.exists()) {
+                    val schemaFiles = File(filesDir, "rime/shared").listFiles { f -> f.name.endsWith(".schema.yaml") } ?: emptyArray()
+                    val missingPrism = schemaFiles.any { schemaFile ->
+                        val schemaId = schemaFile.name.removeSuffix(".schema.yaml")
+                        schemaId !in availableSchemas || !File(buildDir, "$schemaId.prism.bin").exists()
+                    }
+                    if (missingPrism) {
+                        Log.d(TAG, "New schemas detected, deploying...")
+                        rimeEngine.deploy()
+                        rimeEngine.ensureSession()
+                    }
                 }
+                val freshAvailable = rimeEngine.getAvailableSchemas()
                 withContext(Dispatchers.Main) {
                     notifyDeploymentStatus(false, "")
                     val savedSchema = SettingsPreferences.getCurrentSchema(this@XimeInputMethodService)
-                    val availableSchemas = rimeEngine.getAvailableSchemas()
                     val currentSchema = rimeEngine.getCurrentSchema()
-                    if (savedSchema in availableSchemas && currentSchema != savedSchema) {
+                    if (savedSchema in freshAvailable && currentSchema != savedSchema) {
                         rimeEngine.switchSchema(savedSchema)
                     }
                     updateSchemaName()
@@ -422,6 +442,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             },
                             onKeyPressDown = { key ->
                                 feedbackManager.performKeyPressDownEffect(key)
+                            },
+                            onSchemaSwitch = { schemaId ->
+                                serviceScope.launch(Dispatchers.Default) {
+                                    rimeMutex.withLock {
+                                        rimeEngine.switchSchema(schemaId)
+                                    }
+                                }
                             },
                             onCursorMove = { direction ->
                                 serviceScope.launch(Dispatchers.Main) {
@@ -788,7 +815,9 @@ if (state.showKeyboardResize) {
     }
     
     private fun updateUI() {
-        val inputText = rimeEngine.getInput()
+        val rawInput = rimeEngine.getInput()
+        val currentSchema = rimeEngine.getCurrentSchema()
+        val inputText = if (currentSchema == "t9_pinyin") rawInput.lowercase() else rawInput
         val candidatesWithComments = rimeEngine.getCandidatesWithComments()
         val isAsciiMode = rimeEngine.isAsciiMode()
         val hasNextPage = rimeEngine.hasNextPage()
@@ -834,29 +863,72 @@ if (state.showKeyboardResize) {
         } else {
             emptyList()
         }
-        
+
         val builtInSchemas = SchemaConfigHelper.getBuiltInSchemas()
-        
-        val schemas = builtInSchemas.map { builtIn ->
-            val isDeployed = builtIn.schemaId in availableSchemaIds
-            com.kingzcheung.xime.settings.SchemaInfo(
-                schemaId = builtIn.schemaId,
-                name = builtIn.name,
-                version = builtIn.version,
-                author = builtIn.author,
-                description = builtIn.description,
-                isDownloaded = isDeployed
-            )
+        val builtInMap = builtInSchemas.associateBy { it.schemaId }
+
+        // 以 Rime 部署的方案列表为准，按布局展开为多个条目
+        val schemas = availableSchemaIds.flatMap { schemaId ->
+            val builtIn = builtInMap[schemaId]
+            val baseName = builtIn?.name ?: readSchemaName(schemaId)
+            val layouts = SchemaLayoutHelper.getSupportedLayouts(this@XimeInputMethodService, schemaId)
+
+            if (layouts.size > 1) {
+                // 支持多布局 → 展开：每个布局一条
+                layouts.map { layout ->
+                    val entryName = layout.displayName
+                    com.kingzcheung.xime.settings.SchemaInfo(
+                        schemaId = schemaId,
+                        name = entryName,
+                        version = builtIn?.version ?: "",
+                        author = builtIn?.author ?: "",
+                        description = builtIn?.description ?: "",
+                        isDownloaded = true,
+                        supportedLayouts = listOf(layout),
+                        displayLayoutId = layout.id
+                    )
+                }
+            } else {
+                // 单布局
+                listOf(
+                    com.kingzcheung.xime.settings.SchemaInfo(
+                        schemaId = schemaId,
+                        name = baseName,
+                        version = builtIn?.version ?: "",
+                        author = builtIn?.author ?: "",
+                        description = builtIn?.description ?: "",
+                        isDownloaded = true,
+                        supportedLayouts = layouts,
+                        displayLayoutId = null
+                    )
+                )
+            }
         }
-        
+
         val currentSchemaId = rimeEngine.getCurrentSchema()
         val schemaInfo = schemas.find { it.schemaId == currentSchemaId }
-        
+
         uiState.value = uiState.value.copy(
             schemaName = schemaInfo?.name ?: currentSchemaId,
             currentSchemaId = currentSchemaId,
             schemas = schemas
         )
+    }
+
+    /**
+     * 从 schema 文件中读取方案显示名称
+     */
+    private fun readSchemaName(schemaId: String): String {
+        val content = try {
+            assets.open("rime/$schemaId.schema.yaml")
+                .bufferedReader().readText()
+        } catch (_: Exception) {
+            val sharedFile = File(filesDir, "rime/shared/$schemaId.schema.yaml")
+            if (sharedFile.exists()) sharedFile.readText() else return schemaId
+        }
+        val nameRegex = Regex("""^\s*name:\s*"([^"]*)"|^\s*name:\s*'([^']*)'|^\s*name:\s*(.*)""", RegexOption.MULTILINE)
+        val match = nameRegex.find(content)
+        return match?.groupValues?.firstOrNull { it.isNotEmpty() }?.trim('"', '\'', ' ') ?: schemaId
     }
 
     private fun handleKeyPress(key: String, isShifted: Boolean) {
@@ -880,7 +952,7 @@ if (state.showKeyboardResize) {
                         needsUIUpdate = true
                         Log.d(TAG, "Delete English pending: '$newPending'")
                     } else if (state.isComposing || state.inputText.isNotEmpty()) {
-                        rimeEngine.processKey(0xff08, 0)
+                        rimeMutex.withLock { rimeEngine.processKey(0xff08, 0) }
                         
                         val currentInput = rimeEngine.getInput()
                         if (currentInput.isEmpty()) {
@@ -1073,10 +1145,10 @@ if (state.showKeyboardResize) {
                         }
                     } else {
                         val char = if (isShifted) key.uppercase() else key
-                        val keyCode = key.lowercase()[0].code
+                        val keyCode = key[0].code
                         val mask = if (isShifted) KeyEvent.META_SHIFT_ON else 0
                         
-                        val processed = rimeEngine.processKey(keyCode, mask)
+                        val processed = rimeMutex.withLock { rimeEngine.processKey(keyCode, mask) }
                         
                         if (processed) {
                             needsUIUpdate = true
@@ -1270,6 +1342,8 @@ if (state.showKeyboardResize) {
         }
     }
     
+
+
     private fun switchSchema(schemaId: String) {
         Log.d(TAG, "Switching schema to: $schemaId")
         try {

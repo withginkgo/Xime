@@ -75,6 +75,11 @@ reverse_lookup:
     - xform/([nl])ue/$1üe/
     - xform/([jqxy])v/$1u/
 
+# ── 自定义字段：声明支持的键盘布局 ──
+x_keyboard_layouts:
+  - id: full
+    name: 全键盘
+
 punctuator:
   import_preset: default
 

@@ -30,15 +30,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.settings.SchemaInfo
+import com.kingzcheung.xime.settings.SettingsPreferences
 
 @Composable
 fun SchemaListView(
     schemas: List<SchemaInfo>,
     currentSchemaId: String,
+    currentLayoutId: String?,
     isDarkTheme: Boolean,
     backgroundColor: Color,
     accentColor: Color,
-    onSelectSchema: (String) -> Unit,
+    onSelectSchema: (String, String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val itemBgColor = if (isDarkTheme) Color(0xFF45474A) else Color.White
@@ -47,6 +49,7 @@ fun SchemaListView(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val columns = if (isLandscape) 8 else 4
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
         modifier = modifier
@@ -62,7 +65,8 @@ fun SchemaListView(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "没有可用的输入方案",
+                    text = "没有可用的键盘方案",
+
                     color = subTextColor,
                     fontSize = 13.sp
                 )
@@ -75,13 +79,19 @@ fun SchemaListView(
                     horizontalArrangement = Arrangement.spacedBy(if (isLandscape) 8.dp else 12.dp)
                 ) {
                     rowItems.forEach { schema ->
+                        // 选中判定：schemaId + displayLayoutId 都匹配
+                        val isSelected = schema.schemaId == currentSchemaId &&
+                            (schema.displayLayoutId == null || schema.displayLayoutId == currentLayoutId)
+
                         SchemaGridItem(
                             schema = schema,
-                            isSelected = schema.schemaId == currentSchemaId,
+                            isSelected = isSelected,
                             bgColor = itemBgColor,
                             textColor = textColor,
+                            subTextColor = subTextColor,
                             accentColor = accentColor,
-                            onSelect = { onSelectSchema(schema.schemaId) },
+                            layoutHint = null,
+                            onSelect = { onSelectSchema(schema.schemaId, schema.displayLayoutId) },
                             modifier = Modifier.weight(1f),
                             isLandscape = isLandscape
                         )
@@ -106,7 +116,9 @@ private fun SchemaGridItem(
     isSelected: Boolean,
     bgColor: Color,
     textColor: Color,
+    subTextColor: Color,
     accentColor: Color,
+    layoutHint: String? = null,
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
     isLandscape: Boolean = false
@@ -136,5 +148,14 @@ private fun SchemaGridItem(
             textAlign = TextAlign.Center,
             maxLines = 1
         )
+        if (layoutHint != null) {
+            Text(
+                text = layoutHint,
+                color = if (isSelected) accentColor.copy(alpha = 0.7f) else subTextColor,
+                fontSize = 8.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 1
+            )
+        }
     }
 }

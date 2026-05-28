@@ -73,6 +73,7 @@ fun KeyboardView(
     onDismissDeploying: (() -> Unit)? = null,
     onKeyPress: (String, Boolean) -> Unit,
     onKeyPressDown: ((String) -> Unit)? = null,
+    onSchemaSwitch: ((String) -> Unit)? = null,
     onCandidateSelect: (Int) -> Unit,
     onAssociationSelect: ((Int) -> Unit)? = null,
     onToggleDarkMode: (() -> Unit)? = null,
@@ -123,13 +124,20 @@ fun KeyboardView(
     val candidateTextColor = keyTextColor
     val dividerColor = if (isDarkTheme) DividerColorDark else DividerColor
     val state = uiStateProvider()
-    // 每次重新开始输入时（inputSessionId 变化），重置导航状态到全键盘
-    LaunchedEffect(state.inputSessionId) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    // 每次重新开始输入或切换方案时，根据当前方案确定键盘模式
+    LaunchedEffect(state.inputSessionId, state.currentSchemaId) {
         showCandidatePage = false
         showClipboard = false
         showEmoji = false
         showSchemaList = false
         showMenu = false
+        if (state.currentSchemaId == "t9_pinyin") {
+            keyboardMode = KeyboardMode.NINEKEY
+        } else {
+            keyboardMode = KeyboardMode.FULL
+        }
     }
 
     Box(modifier = modifier.background(keyboardBgColor)) {
@@ -271,11 +279,13 @@ fun KeyboardView(
                     SchemaListView(
                         schemas = schemas,
                         currentSchemaId = currentSchemaId,
+                        currentLayoutId = null,
                         isDarkTheme = isDarkTheme,
                         backgroundColor = keyboardBgColor,
                         accentColor = accentColor,
-                        onSelectSchema = { schemaId ->
+                        onSelectSchema = { schemaId, _ ->
                             onSwitchSchema?.invoke(schemaId)
+                            keyboardMode = if (schemaId == "t9_pinyin") KeyboardMode.NINEKEY else KeyboardMode.FULL
                             showSchemaList = false
                         },
                         modifier = Modifier.weight(1f)
@@ -403,9 +413,48 @@ fun KeyboardView(
                             NumberKeyboardLayout(
                                 onKeyPress = { key ->
                                     when (key) {
-                                        "abc" -> keyboardMode = KeyboardMode.FULL
+                                        "abc" -> {
+                                            keyboardMode = KeyboardMode.FULL
+                                            onSchemaSwitch?.invoke(currentSchemaId)
+                                        }
                                         "symbol" -> keyboardMode = KeyboardMode.SYMBOL
+                                        "t9" -> {
+                                            keyboardMode = KeyboardMode.NINEKEY
+                                            onSchemaSwitch?.invoke("t9_pinyin")
+                                        }
                                         "emoji" -> showEmoji = true
+                                        else -> onKeyPress(key, false)
+                                    }
+                                },
+                                keyBackgroundColor = keyBgColor,
+                                keyTextColor = keyTextColor,
+                                specialKeyBackgroundColor = specialKeyBgColor,
+                                keyboardBackgroundColor = keyboardBgColor,
+                                modifier = Modifier.weight(1f).then(cursorMod),
+                                onKeyPressDown = onKeyPressDown
+                            )
+                        }
+                        KeyboardMode.NINEKEY -> {
+                            NineKeyKeyboardLayout(
+                                onKeyPress = { key ->
+                                    when (key) {
+                                        "abc" -> {
+                                            keyboardMode = KeyboardMode.FULL
+                                            onSchemaSwitch?.invoke(currentSchemaId)
+                                        }
+                                        "mode_change" -> {
+                                            keyboardMode = KeyboardMode.NUMBER
+                                            onSchemaSwitch?.invoke(currentSchemaId)
+                                        }
+                                        "symbol" -> {
+                                            keyboardMode = KeyboardMode.SYMBOL
+                                            onSchemaSwitch?.invoke(currentSchemaId)
+                                        }
+                                        "emoji" -> showEmoji = true
+                                        "delete" -> onKeyPress("delete", false)
+                                        "space" -> onKeyPress("space", false)
+                                        "enter" -> onKeyPress("enter", false)
+                                        "'" -> onKeyPress("'", false)
                                         else -> onKeyPress(key, false)
                                     }
                                 },

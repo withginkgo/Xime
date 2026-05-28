@@ -147,12 +147,17 @@ object RimeConfigHelper {
         return copiedAny
     }
     
+    /**
+     * 每次启动时同步 assets 中的 .yaml 到共享目录（覆盖已有的，确保新 schema 生效）
+     */
+    fun syncAssets(context: Context) {
+        val sharedDataDir = File(context.filesDir, "rime/shared")
+        sharedDataDir.mkdirs()
+        copyAssetsToRimeDir(context, sharedDataDir)
+    }
+
     private fun copyAssetFile(context: Context, assetPath: String, targetFile: File) {
         try {
-            if (targetFile.exists()) {
-                return
-            }
-            
             targetFile.parentFile?.mkdirs()
             context.assets.open(assetPath).use { input ->
                 FileOutputStream(targetFile).use { output ->

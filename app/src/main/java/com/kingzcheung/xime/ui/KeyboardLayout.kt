@@ -291,6 +291,7 @@ fun KeyboardLayout(
                         modifier = Modifier.weight(0.8f),
                         onPress = { onKeyPressDown?.invoke("ime_switch") }
                     )
+                    
                 }
                 
                 // 空格键 - 支持左右滑动控制光标、长按语音

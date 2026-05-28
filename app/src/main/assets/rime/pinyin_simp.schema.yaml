@@ -75,6 +75,7 @@ reverse_lookup:
   preedit_format:
     - xlit/hspnz/一丨丿丶乙/
 
+# ── 自定义字段：声明支持的键盘布局 ──
 punctuator:
   import_preset: default
 
