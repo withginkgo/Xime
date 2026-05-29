@@ -450,6 +450,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                     }
                                 }
                             },
+                            onT9ReplaceFullPinyin = { pinyin ->
+                                commitT9PinyinFull(pinyin)
+                            },
                             onCursorMove = { direction ->
                                 serviceScope.launch(Dispatchers.Main) {
                                     val keyCode = if (direction > 0) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT
@@ -1212,11 +1215,12 @@ if (state.showKeyboardResize) {
                         Log.d(TAG, "Learned: '$lastChar' + '$selectedCandidate'")
                     }
                 }
-                withContext(Dispatchers.Main) {
-                    commitText(committedText)
-                }
-            }
             withContext(Dispatchers.Main) {
+                commitText(committedText)
+                uiState.value = uiState.value.copy(inputSessionId = System.nanoTime())
+            }
+        }
+        withContext(Dispatchers.Main) {
                 updateUI()
             }
         }
@@ -1343,6 +1347,21 @@ if (state.showKeyboardResize) {
     }
     
 
+
+    private fun commitT9PinyinFull(pinyin: String) {
+        serviceScope.launch(Dispatchers.Default) {
+            rimeMutex.withLock {
+                rimeEngine.clearComposition()
+                for (ch in pinyin) {
+                    val keyCode = ch.lowercase()[0].code
+                    rimeEngine.processKey(keyCode, 0)
+                }
+            }
+            withContext(Dispatchers.Main) {
+                updateUI()
+            }
+        }
+    }
 
     private fun switchSchema(schemaId: String) {
         Log.d(TAG, "Switching schema to: $schemaId")

@@ -74,6 +74,7 @@ fun KeyboardView(
     onKeyPress: (String, Boolean) -> Unit,
     onKeyPressDown: ((String) -> Unit)? = null,
     onSchemaSwitch: ((String) -> Unit)? = null,
+    onT9ReplaceFullPinyin: ((String) -> Unit)? = null,
     onCandidateSelect: (Int) -> Unit,
     onAssociationSelect: ((Int) -> Unit)? = null,
     onToggleDarkMode: (() -> Unit)? = null,
@@ -379,9 +380,9 @@ fun KeyboardView(
                                     keyTextColor = keyTextColor,
                                     specialKeyBackgroundColor = specialKeyBgColor,
                                     keyboardBackgroundColor = keyboardBgColor,
-                                    modifier = Modifier.weight(1f).then(cursorMod),
-                                    onKeyPressDown = onKeyPressDown
-                                )
+                                modifier = Modifier.weight(1f).then(cursorMod),
+                                onKeyPressDown = onKeyPressDown
+                            )
                             } else {
                                 KeyboardLayout(
                                     onKeyPress = { key ->
@@ -436,6 +437,9 @@ fun KeyboardView(
                         }
                         KeyboardMode.NINEKEY -> {
                             NineKeyKeyboardLayout(
+                                onReplaceFullPinyin = { pinyin ->
+                                    onT9ReplaceFullPinyin?.invoke(pinyin)
+                                },
                                 onKeyPress = { key ->
                                     when (key) {
                                         "abc" -> {
@@ -463,7 +467,8 @@ fun KeyboardView(
                                 specialKeyBackgroundColor = specialKeyBgColor,
                                 keyboardBackgroundColor = keyboardBgColor,
                                 modifier = Modifier.weight(1f).then(cursorMod),
-                                onKeyPressDown = onKeyPressDown
+                                onKeyPressDown = onKeyPressDown,
+                                resetSignal = state.inputSessionId
                             )
                         }
                         KeyboardMode.SYMBOL -> {
