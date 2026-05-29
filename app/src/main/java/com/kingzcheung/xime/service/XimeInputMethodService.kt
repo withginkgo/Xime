@@ -45,7 +45,6 @@ import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.SchemaConfigHelper
-import com.kingzcheung.xime.settings.SchemaLayoutHelper
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.KeyboardView
 import com.kingzcheung.xime.ui.KeysConfigHelper
@@ -274,24 +273,18 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 rimeEngine.initialize(userDataDir, sharedDataDir)
 
                 // 检查词库是否已部署（prism.bin 文件是否存在）
-                val deploymentDone = SettingsPreferences.isDeploymentDone(this@XimeInputMethodService)
-                val needsDeployment = !deploymentDone || !RimeConfigHelper.isDeploymentComplete(this@XimeInputMethodService)
-
-                if (needsDeployment) {
-                    // 首次部署：需要编译词库
+                if (!SettingsPreferences.isDeploymentDone(this@XimeInputMethodService)) {
+                    // 首次部署：全量同步编译（JNI 层等待部署完成后创建 session）
                     notifyDeploymentStatus(true, "正在编译词库...")
-                    rimeEngine.startMaintenance(false)
-                    SettingsPreferences.setDeploymentDone(this@XimeInputMethodService, true)
-                } else {
-                    // 词库已存在：快速刷新 schema 注册表，不显示"编译"提示
-                    rimeEngine.startMaintenance(false)
+                    if (rimeEngine.deploy()) {
+                        SettingsPreferences.setDeploymentDone(this@XimeInputMethodService, true)
+                    }
                 }
 
-                val sessionReady = rimeEngine.ensureSession()
-                if (sessionReady) {
-                    Log.d(TAG, "initRimeEngine: Session ready")
+                if (!rimeEngine.ensureSession()) {
+                    Log.w(TAG, "initRimeEngine: Session not ready after 60s, continuing in background")
                 } else {
-                    Log.w(TAG, "initRimeEngine: Session not ready after 30s, continuing in background")
+                    Log.d(TAG, "initRimeEngine: Session ready")
                 }
                 notifyDeploymentStatus(false, "")
 
@@ -901,42 +894,17 @@ onVoiceModeChange = { enabled ->
         val builtInSchemas = SchemaConfigHelper.getBuiltInSchemas()
         val builtInMap = builtInSchemas.associateBy { it.schemaId }
 
-        // 以 Rime 部署的方案列表为准，按布局展开为多个条目
-        val schemas = availableSchemaIds.flatMap { schemaId ->
+        val schemas = availableSchemaIds.map { schemaId ->
             val builtIn = builtInMap[schemaId]
-            val baseName = builtIn?.name ?: readSchemaName(schemaId)
-            val layouts = SchemaLayoutHelper.getSupportedLayouts(this@XimeInputMethodService, schemaId)
-
-            if (layouts.size > 1) {
-                // 支持多布局 → 展开：每个布局一条
-                layouts.map { layout ->
-                    val entryName = layout.displayName
-                    com.kingzcheung.xime.settings.SchemaInfo(
-                        schemaId = schemaId,
-                        name = entryName,
-                        version = builtIn?.version ?: "",
-                        author = builtIn?.author ?: "",
-                        description = builtIn?.description ?: "",
-                        isDownloaded = true,
-                        supportedLayouts = listOf(layout),
-                        displayLayoutId = layout.id
-                    )
-                }
-            } else {
-                // 单布局
-                listOf(
-                    com.kingzcheung.xime.settings.SchemaInfo(
-                        schemaId = schemaId,
-                        name = baseName,
-                        version = builtIn?.version ?: "",
-                        author = builtIn?.author ?: "",
-                        description = builtIn?.description ?: "",
-                        isDownloaded = true,
-                        supportedLayouts = layouts,
-                        displayLayoutId = null
-                    )
-                )
-            }
+            val name = builtIn?.name ?: readSchemaName(schemaId)
+            com.kingzcheung.xime.settings.SchemaInfo(
+                schemaId = schemaId,
+                name = name,
+                version = builtIn?.version ?: "",
+                author = builtIn?.author ?: "",
+                description = builtIn?.description ?: "",
+                isDownloaded = true
+            )
         }
 
         val currentSchemaId = rimeEngine.getCurrentSchema()

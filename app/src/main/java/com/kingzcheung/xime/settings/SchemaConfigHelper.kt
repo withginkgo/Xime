@@ -79,14 +79,12 @@ object SchemaConfigHelper {
         return schemaListIds.mapNotNull { schemaId ->
             val builtIn = getSchemaById(schemaId)
             if (builtIn != null) {
-                val layouts = SchemaLayoutHelper.getSupportedLayouts(context, schemaId)
                 SchemaInfo(
                     schemaId = builtIn.schemaId,
                     name = builtIn.name,
                     version = builtIn.version,
                     author = builtIn.author,
-                    description = builtIn.description,
-                    supportedLayouts = layouts
+                    description = builtIn.description
                 )
             } else {
                 Log.w(TAG, "Unknown schema in default.yaml: $schemaId")

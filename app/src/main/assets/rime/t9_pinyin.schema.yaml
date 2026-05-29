@@ -37,9 +37,6 @@ translator:
   preedit_format:
     - xlit/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/
 
-x_keyboard_layouts:
-  - id: ninekey
-    name: 拼音九键
 
 punctuator:
   import_preset: default

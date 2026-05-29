@@ -70,8 +70,3 @@ recognizer:
 
 menu:
   page_size: 20
-  
-# ── 自定义字段：声明支持的键盘布局 ──
-x_keyboard_layouts:
-  - id: full
-    name: 全键盘
