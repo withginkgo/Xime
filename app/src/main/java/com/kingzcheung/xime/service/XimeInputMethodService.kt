@@ -45,6 +45,7 @@ import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.SchemaConfigHelper
+import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.KeyboardView
 import com.kingzcheung.xime.ui.KeysConfigHelper
@@ -230,39 +231,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             }
         }
         
-        if (RimeEngine.isInitialized()) {
-            Log.d(TAG, "initRimeEngine: Engine already initialized, setting up schema...")
-            serviceScope.launch(Dispatchers.IO) {
-                rimeEngine.ensureSession()
-                // 检测是否有新 schema 需要编译 prism
-                val buildDir = File(filesDir, "rime/user/build")
-                val availableSchemas = rimeEngine.getAvailableSchemas().toSet()
-                if (buildDir.exists()) {
-                    val schemaFiles = File(filesDir, "rime/shared").listFiles { f -> f.name.endsWith(".schema.yaml") } ?: emptyArray()
-                    val missingPrism = schemaFiles.any { schemaFile ->
-                        val schemaId = schemaFile.name.removeSuffix(".schema.yaml")
-                        schemaId !in availableSchemas || !File(buildDir, "$schemaId.prism.bin").exists()
-                    }
-                    if (missingPrism) {
-                        Log.d(TAG, "New schemas detected, deploying...")
-                        rimeEngine.deploy()
-                        rimeEngine.ensureSession()
-                    }
-                }
-                val freshAvailable = rimeEngine.getAvailableSchemas()
-                withContext(Dispatchers.Main) {
-                    notifyDeploymentStatus(false, "")
-                    val savedSchema = SettingsPreferences.getCurrentSchema(this@XimeInputMethodService)
-                    val currentSchema = rimeEngine.getCurrentSchema()
-                    if (savedSchema in freshAvailable && currentSchema != savedSchema) {
-                        rimeEngine.switchSchema(savedSchema)
-                    }
-                    updateSchemaName()
-                }
-            }
-            return
-        }
-        
+
         val initJob = serviceScope.launch(Dispatchers.IO) {
             try {
                 notifyDeploymentStatus(true, "正在初始化...")
@@ -273,18 +242,61 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 rimeEngine.initialize(userDataDir, sharedDataDir)
 
                 // 检查词库是否已部署（prism.bin 文件是否存在）
-                if (!SettingsPreferences.isDeploymentDone(this@XimeInputMethodService)) {
-                    // 首次部署：全量同步编译（JNI 层等待部署完成后创建 session）
+                val deploymentDone = SettingsPreferences.isDeploymentDone(this@XimeInputMethodService)
+                val needsDeployment = !deploymentDone || !RimeConfigHelper.isDeploymentComplete(this@XimeInputMethodService)
+
+                if (needsDeployment) {
+                    // 首次部署：需要完整编译词库
                     notifyDeploymentStatus(true, "正在编译词库...")
-                    if (rimeEngine.deploy()) {
-                        SettingsPreferences.setDeploymentDone(this@XimeInputMethodService, true)
+                    val maintenanceStarted = rimeEngine.startMaintenance(true)
+                    if (!maintenanceStarted) {
+                        Log.w(TAG, "initRimeEngine: startMaintenance returned false! " +
+                                "Deployment may not have started. Trying deploy() as fallback...")
+                        val deployed = rimeEngine.deploy()
+                        if (deployed) {
+                            Log.i(TAG, "initRimeEngine: deploy() succeeded as fallback")
+                        } else {
+                            Log.e(TAG, "initRimeEngine: both startMaintenance and deploy() failed")
+                        }
                     }
+
+                    // 诊断：检查 maintenance 是否真的进入了维护模式
+                    val maintaining = rimeEngine.isMaintaining()
+                    Log.d(TAG, "initRimeEngine: startMaintenance returned $maintenanceStarted, isMaintaining=$maintaining")
+
+                    // 等待编译完成（最多 120 秒），startMaintenance 是异步的，
+                    // 不等待的话 ensureSession 读到的是空 schema 列表
+                    if (maintaining) {
+                        var maintenanceWaited = 0L
+                        val maintenanceTimeoutMs = 120_000L
+                        while (rimeEngine.isMaintaining() && maintenanceWaited < maintenanceTimeoutMs) {
+                            Thread.sleep(100)
+                            maintenanceWaited += 100
+                            if (maintenanceWaited % 5000 == 0L) {
+                                Log.d(TAG, "initRimeEngine: waiting for maintenance... (${maintenanceWaited / 1000}s)")
+                            }
+                        }
+                        if (rimeEngine.isMaintaining()) {
+                            Log.w(TAG, "initRimeEngine: maintenance still running after timeout, continuing anyway")
+                        } else {
+                            Log.d(TAG, "initRimeEngine: maintenance completed in ${maintenanceWaited}ms")
+                        }
+                    }
+                } else {
+                    // 词库已存在：快速刷新 schema 注册表，不显示"编译"提示
+                    rimeEngine.startMaintenance(false)
                 }
 
-                if (!rimeEngine.ensureSession()) {
-                    Log.w(TAG, "initRimeEngine: Session not ready after 60s, continuing in background")
-                } else {
+                val sessionReady = rimeEngine.ensureSession()
+                if (sessionReady) {
                     Log.d(TAG, "initRimeEngine: Session ready")
+                    // 确保部署成功后才标记完成，避免首次部署超时后误标记
+                    if (needsDeployment) {
+                        SettingsPreferences.setDeploymentDone(this@XimeInputMethodService, true)
+                    }
+                } else {
+                    Log.w(TAG, "initRimeEngine: Session not ready after 60s, continuing in background")
+                }
                 }
                 notifyDeploymentStatus(false, "")
 
@@ -310,12 +322,13 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             }
         }
         
-        // Watchdog: force-clear loading state after 60s
+        // Watchdog: force-clear loading state after 190s
         // withTimeout cannot cancel native JNI calls; if rimeEngine.initialize() hangs
         // in librime, the IO coroutine would block forever. This watchdog ensures the
         // user is never permanently stuck on the loading screen.
+        // 首次编译最多等 120s + ensureSession 60s + 10s 缓冲
         serviceScope.launch(Dispatchers.Main) {
-            delay(60_000L)
+            delay(190_000L)
             if (uiState.value.isDeploying) {
                 Log.w(TAG, "initRimeEngine: Watchdog triggered - native init appears stuck, forcing loading state cleared")
                 uiState.value = uiState.value.copy(
@@ -891,19 +904,16 @@ onVoiceModeChange = { enabled ->
             emptyList()
         }
 
-        val builtInSchemas = SchemaConfigHelper.getBuiltInSchemas()
-        val builtInMap = builtInSchemas.associateBy { it.schemaId }
+        val allSchemas = SchemaManager.discoverSchemas(this)
 
-        val schemas = availableSchemaIds.map { schemaId ->
-            val builtIn = builtInMap[schemaId]
-            val name = builtIn?.name ?: readSchemaName(schemaId)
+        val schemas = allSchemas.map { meta ->
             com.kingzcheung.xime.settings.SchemaInfo(
-                schemaId = schemaId,
-                name = name,
-                version = builtIn?.version ?: "",
-                author = builtIn?.author ?: "",
-                description = builtIn?.description ?: "",
-                isDownloaded = true
+                schemaId = meta.schemaId,
+                name = meta.name,
+                version = meta.version,
+                author = meta.author,
+                description = meta.description,
+                isDownloaded = meta.schemaId in availableSchemaIds
             )
         }
 
