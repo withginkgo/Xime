@@ -96,6 +96,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private var isTrackingVoiceButtons = false
     private var voiceRecordingStarted = false
     private var lastClearedText: String = ""
+    private var t9UpdateJob: kotlinx.coroutines.Job? = null
     
     private val calculatorEngine = com.kingzcheung.xime.calculator.CalculatorEngine()
     
@@ -468,7 +469,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 }
                             },
                             onT9ReplaceFullPinyin = { pinyin ->
-                                serviceScope.launch(Dispatchers.Default) {
+                                t9UpdateJob?.cancel()
+                                t9UpdateJob = serviceScope.launch(Dispatchers.Default) {
                                     rimeEngine.clearComposition()
                                     for (char in pinyin) {
                                         rimeEngine.processKey(char.lowercaseChar().code, 0)
@@ -1024,7 +1026,8 @@ onVoiceModeChange = { enabled ->
                         pendingEnglishText = "",
                         inputText = "",
                         isComposing = false,
-                        isShowingRecentClipboard = false
+                        isShowingRecentClipboard = false,
+                        t9ResetSignal = uiState.value.t9ResetSignal + 1
                     )
                     withContext(Dispatchers.Main) {
                         currentInputConnection?.let {
