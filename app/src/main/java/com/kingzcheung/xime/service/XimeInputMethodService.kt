@@ -716,9 +716,9 @@ onVoiceModeChange = { enabled ->
                 val availableSchemas = rimeEngine.getAvailableSchemas()
                 if (savedSchema in availableSchemas) {
                     rimeEngine.switchSchema(savedSchema)
-                    updateSchemaName()
                 }
             }
+            updateSchemaName()
         }
 
         // 标记新一轮输入会话，用于 KeyboardView 重置导航状态
