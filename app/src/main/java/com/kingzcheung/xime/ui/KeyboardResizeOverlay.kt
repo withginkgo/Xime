@@ -68,7 +68,8 @@ fun KeyboardResizeOverlay(
         maxBottomPaddingDp = maxKeyboardHeightDp - minKeyboardHeightDp
     }
 
-    val minBottomPaddingDp = 0
+    // 允许负值，用于缩减键盘底部的 40dp 固定空白区
+    val minBottomPaddingDp = -40
 
     val safeDefaultHeightDp = defaultHeightDp.coerceIn(minKeyboardHeightDp, maxKeyboardHeightDp)
     val safeDefaultBottomPaddingDp = defaultBottomPaddingDp.coerceIn(minBottomPaddingDp, maxBottomPaddingDp)

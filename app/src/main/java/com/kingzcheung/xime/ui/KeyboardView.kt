@@ -329,8 +329,10 @@ fun KeyboardView(
                     }
                 }
             }
-            // 位移间距（键盘区和候选栏向上位移时在此处增加空白）
-            Spacer(modifier = Modifier.height(keyboardBottomPaddingDp.dp))
+            // 间距：正值=键盘与底部的间隙，负值=缩减底部固定空白区
+            val gapAbove = maxOf(0, keyboardBottomPaddingDp)
+            val bottomReduction = minOf(0, keyboardBottomPaddingDp) // 负值
+            Spacer(modifier = Modifier.height(gapAbove.dp))
             // 底部按钮区（独立于键盘区，键盘调节时不拉伸此区域）
             // 横屏下不显示底部按钮，让分体键盘占满空间
             val configuration = LocalConfiguration.current
@@ -378,9 +380,11 @@ fun KeyboardView(
                     }
                 }
             } else if (!isVoiceMode && !isLandscapeBottom) {
-                Spacer(modifier = Modifier.height(40.dp))
+                val bottomSpacer = (40 + bottomReduction).coerceAtLeast(0)
+                Spacer(modifier = Modifier.height(bottomSpacer.dp))
             } else if (!isVoiceMode && isLandscapeBottom) {
-                Spacer(modifier = Modifier.height(15.dp))
+                val bottomSpacer = (15 + bottomReduction).coerceAtLeast(0)
+                Spacer(modifier = Modifier.height(bottomSpacer.dp))
             }
         }
 
