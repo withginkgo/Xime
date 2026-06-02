@@ -67,6 +67,7 @@ data class MenuItem(
 fun MenuBar(
     isVisible: Boolean,
     isDarkTheme: Boolean,
+    darkMode: Int = 2,
     backgroundColor: Color,
     onDismiss: () -> Unit,
     onClipboard: () -> Unit,
@@ -93,7 +94,15 @@ fun MenuBar(
         MenuItem(rememberVectorPainter(Icons.TwoTone.Quickreply), "快捷发送", onQuickSend),
         MenuItem(rememberVectorPainter(Icons.TwoTone.SettingsOverscan), "键盘调节", onKeyboardResize),
         MenuItem(rememberVectorPainter(Icons.TwoTone.EmojiEmotions), "表情", onEmoji),
-        MenuItem(rememberVectorPainter(if (isDarkTheme) Icons.TwoTone.LightMode else Icons.TwoTone.DarkMode), if (isDarkTheme) "浅色模式" else "深色模式", onToggleDarkMode),
+        MenuItem(rememberVectorPainter(when (darkMode) {
+                0 -> Icons.TwoTone.DarkMode
+                1 -> Icons.TwoTone.LightMode
+                else -> if (isDarkTheme) Icons.TwoTone.LightMode else Icons.TwoTone.DarkMode
+            }), when (darkMode) {
+                0 -> "深色模式"
+                1 -> "浅色模式"
+                else -> "跟随系统"
+            }, onToggleDarkMode),
         MenuItem(rememberVectorPainter(Icons.TwoTone.Rotate90DegreesCcw), "部署方案", onReloadConfig),
         MenuItem(rememberVectorPainter(Icons.TwoTone.BorderTop), "定制工具栏", onToolbarCustomize),
         MenuItem(rememberVectorPainter(Icons.TwoTone.Keyboard), "输入方案", onSchemaList),

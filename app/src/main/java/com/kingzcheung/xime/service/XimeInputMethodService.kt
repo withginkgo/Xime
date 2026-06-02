@@ -453,6 +453,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 schemas = state.schemas,
                                 enterKeyText = state.enterKeyText,
                             isDarkTheme = isDarkTheme,
+                            darkMode = state.darkMode,
                             themeId = state.themeId,
                             showBottomButtons = state.showBottomButtons,
                             keyboardHeightDp = keyboardHeight,

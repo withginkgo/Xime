@@ -71,6 +71,7 @@ fun KeyboardView(
     schemas: List<SchemaInfo> = emptyList(),
     enterKeyText: String = "发送",
     isDarkTheme: Boolean = false,
+    darkMode: Int = 2,
     themeId: String = "ocean_blue",
     showBottomButtons: Boolean = false,
     clipboardItems: List<ClipboardItem> = emptyList(),
@@ -439,6 +440,7 @@ fun KeyboardView(
                 is KeyboardRoute.Menu -> MenuBar(
                 isVisible = true,
                 isDarkTheme = isDarkTheme,
+                darkMode = darkMode,
                 backgroundColor = keyboardBgColor,
                 bottomPaddingDp = keyboardBottomPaddingDp,
                 onDismiss = { currentRoute = KeyboardRoute.Keyboard },
