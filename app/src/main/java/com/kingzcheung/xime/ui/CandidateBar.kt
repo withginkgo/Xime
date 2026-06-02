@@ -277,23 +277,30 @@ fun CandidateBar(
 
                 if (!isComposing && inputText.isEmpty() && toolbarActions.isNotEmpty()) {
                     toolbarActions.forEach { action ->
+                        val interactionSource = remember { MutableInteractionSource() }
+                        val isPressed by interactionSource.collectIsPressedAsState()
                         Box(
                             modifier = Modifier
                                 .padding(horizontal = 5.dp)
                                 .size(32.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (isDarkTheme) Color.White.copy(
+                                    if (isPressed) (if (isDarkTheme) Color.White.copy(
                                         alpha = 0.15f
-                                    ) else Color.Black.copy(alpha = 0.1f)
+                                    ) else Color.Black.copy(alpha = 0.1f))
+                                    else (if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
                                 )
-                                .clickable(onClick = action.onClick),
+                                .clickable(
+                                    interactionSource = interactionSource,
+                                    indication = null,
+                                    onClick = action.onClick
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = action.button.icon,
                                 contentDescription = action.button.label,
-                                tint = textColor,
+                                tint = if (isPressed) textColor.copy(alpha = 0.6f) else if (isDarkTheme) textColor else textColor.copy(alpha = 0.65f),
                                 modifier = Modifier.size(20.dp)
                             )
                         }

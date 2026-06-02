@@ -14,20 +14,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -42,6 +45,7 @@ fun ToolbarCustomizeView(
     accentColor: Color,
     onUpdateToolbarButtons: ((List<String>) -> Unit)?,
     onDismiss: () -> Unit,
+    bottomPaddingDp: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val allButtons = ToolbarButton.entries
@@ -49,12 +53,16 @@ fun ToolbarCustomizeView(
     var enabledIds by remember(toolbarButtons) { mutableStateOf(toolbarButtons.toSet()) }
 
     fun toggleButton(button: ToolbarButton) {
-        val newIds = if (button.id in enabledIds) enabledIds - button.id else enabledIds + button.id
-        enabledIds = newIds
-        onUpdateToolbarButtons?.invoke(
-            ToolbarButton.entries.filter { it.id in newIds }.map { it.id }
-        )
+        enabledIds = if (button.id in enabledIds) enabledIds - button.id else enabledIds + button.id
+        // 保持 toolbarButtons 的原始顺序，只增删对应项
+        val newList = toolbarButtons.toMutableList()
+        if (button.id in toolbarButtons) newList.remove(button.id) else newList.add(button.id)
+        onUpdateToolbarButtons?.invoke(newList)
     }
+
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val isDarkTheme = keyTextColor == Color(0xFFE8EAED)
 
     val itemsPerPage = 8
     val pages = allButtons.chunked(itemsPerPage).map { page ->
@@ -65,17 +73,73 @@ fun ToolbarCustomizeView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(keyBgColor)
-            .padding(16.dp),
+            .background(keyBgColor),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "点击图标切换，上方候选栏会实时预览效果",
-            color = keyTextColor.copy(alpha = 0.6f),
-            fontSize = 12.sp,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(4.dp))
+        // 导航区：关闭按钮 + 实时预览
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(horizontal = if (isLandscape) 50.dp else 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
+                    .clickable { onDismiss() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "确定",
+                    tint = keyTextColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // 工具栏预览
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 4.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val previewButtons = toolbarButtons.mapNotNull { ToolbarButton.fromId(it) }
+                if (previewButtons.isNotEmpty()) {
+                    previewButtons.forEach { button ->
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 3.dp)
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(if (isDarkTheme) Color.White.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.1f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = button.icon,
+                                contentDescription = null,
+                                tint = keyTextColor,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
         Box(
             modifier = Modifier
@@ -141,8 +205,7 @@ fun ToolbarCustomizeView(
                     }
                 }
             }
-        }
-
+        }        }
         if (pages.size > 1) {
             Spacer(modifier = Modifier.height(8.dp))
             Row(
@@ -164,21 +227,7 @@ fun ToolbarCustomizeView(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            TextButton(onClick = {
-                enabledIds = originalButtons.toSet()
-                onUpdateToolbarButtons?.invoke(originalButtons)
-                onDismiss()
-            }) {
-                Text("取消", color = keyTextColor)
-            }
-            TextButton(onClick = onDismiss) {
-                Text("确定", color = accentColor)
-            }
-        }
+        // 底部留空（竖屏至少 40dp）
+        Spacer(modifier = Modifier.height(if (isLandscape) 15.dp else maxOf(bottomPaddingDp, 40).dp))
     }
 }

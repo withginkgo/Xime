@@ -449,6 +449,12 @@ fun KeyboardView(
 
         // 菜单覆盖层：覆盖整个键盘视图（包括候选栏）
         if (currentRoute !is KeyboardRoute.Keyboard && currentRoute !is KeyboardRoute.CandidatePage && !isVoiceMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight()
+                    .clickable { } // 拦截穿透点击
+            ) {
             when (currentRoute) {
                 is KeyboardRoute.Menu -> MenuBar(
                 isVisible = true,
@@ -505,6 +511,7 @@ fun KeyboardView(
                     accentColor = accentColor,
                     onUpdateToolbarButtons = onUpdateToolbarButtons,
                     onDismiss = { currentRoute = KeyboardRoute.Keyboard },
+                    bottomPaddingDp = keyboardBottomPaddingDp,
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
                 is KeyboardRoute.Emoji -> EmojiKeyboardLayout(
@@ -524,6 +531,7 @@ fun KeyboardView(
                 )
                 else -> {}
             }
+        }
         }
     }
 }
