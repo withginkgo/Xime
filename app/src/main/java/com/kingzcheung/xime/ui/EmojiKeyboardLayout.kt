@@ -14,10 +14,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -155,33 +160,64 @@ fun EmojiKeyboardLayout(
     onBack: () -> Unit,
     backgroundColor: Color,
     textColor: Color,
+    bottomPaddingDp: Int = 0,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val clipboardManager = remember { ClipboardManager.getInstance(context) }
-    
+
     var selectedCategoryIndex by remember { mutableStateOf(0) }
-    
+
     val allCategories by ExtensionManager.emojiCategoriesFlow.collectAsStateWithLifecycle()
     val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape =
+        configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val emojiColumns = if (isLandscape) 15 else 8
-    
+
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor)
-            .padding(vertical = 8.dp, horizontal = if (isLandscape) 50.dp else 4.dp)
     ) {
+        // 导航区
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(horizontal = if (isLandscape) 50.dp else 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (textColor == Color(0xFFE8EAED)) Color(0xFF374151) else Color(
+                            0xFFF3F4F6
+                        )
+                    )
+                    .clickable { onBack() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowLeft,
+                    contentDescription = "返回",
+                    tint = textColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(horizontal = 4.dp)
+                .padding(horizontal = if (isLandscape) 50.dp else 4.dp)
                 .padding(bottom = 4.dp)
         ) {
-            val currentCategory = allCategories.getOrElse(selectedCategoryIndex) { allCategories[0] }
-            
+            val currentCategory =
+                allCategories.getOrElse(selectedCategoryIndex) { allCategories[0] }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -190,10 +226,12 @@ fun EmojiKeyboardLayout(
             ) {
                 if (currentCategory.isPlugin && currentCategory.emojiItems != null) {
                     val config = currentCategory.layoutConfig
-                    val defaultCols = if (currentCategory.emojiItems.any { it.imageUrl != null }) 6 else 8
+                    val defaultCols =
+                        if (currentCategory.emojiItems.any { it.imageUrl != null }) 6 else 8
                     val columns = config?.columns ?: if (isLandscape) 15 else defaultCols
-                    val itemHeightDp = config?.itemHeightDp ?: (if (currentCategory.emojiItems.any { it.imageUrl != null }) 60 else 40)
-                    
+                    val itemHeightDp = config?.itemHeightDp
+                        ?: (if (currentCategory.emojiItems.any { it.imageUrl != null }) 60 else 40)
+
                     currentCategory.emojiItems.chunked(columns).forEach { rowItems ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -210,10 +248,11 @@ fun EmojiKeyboardLayout(
                                         if (imageUrl != null && onImageEmojiSelect != null) {
                                             onImageEmojiSelect(imageUrl)
                                         } else if (imageUrl != null) {
-                                            val success = clipboardManager.copyImageToSystemClipboard(
-                                                imageUrl,
-                                                item.displayText
-                                            )
+                                            val success =
+                                                clipboardManager.copyImageToSystemClipboard(
+                                                    imageUrl,
+                                                    item.displayText
+                                                )
                                             if (success) {
                                                 Toast.makeText(
                                                     context,
@@ -235,7 +274,9 @@ fun EmojiKeyboardLayout(
                                 )
                             }
                             repeat(columns - rowItems.size) {
-                                Spacer(modifier = Modifier.weight(1f).height((itemHeightDp).dp))
+                                Spacer(modifier = Modifier
+                                    .weight(1f)
+                                    .height((itemHeightDp).dp))
                             }
                         }
                         Spacer(modifier = Modifier.height(2.dp))
@@ -243,7 +284,7 @@ fun EmojiKeyboardLayout(
                 } else {
                     val emojis = currentCategory.emojis
                     val columns = if (isLandscape) 15 else 8
-                    
+
                     emojis.chunked(columns).forEach { rowEmojis ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -264,7 +305,7 @@ fun EmojiKeyboardLayout(
                 }
             }
         }
-        
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -273,15 +314,6 @@ fun EmojiKeyboardLayout(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            KeyButton(
-                text = "返回",
-                onClick = onBack,
-                backgroundColor = backgroundColor,
-                textColor = textColor,
-                modifier = Modifier.width(48.dp),
-                fontSize = 12.sp
-            )
-            
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -300,7 +332,7 @@ fun EmojiKeyboardLayout(
                     )
                 }
             }
-            
+
             KeyButton(
                 text = "删除",
                 onClick = { onEmojiSelect("delete") },
@@ -310,6 +342,9 @@ fun EmojiKeyboardLayout(
                 fontSize = 12.sp
             )
         }
+
+        // 底部留空（竖屏至少 40dp，与普通键盘一致）
+        Spacer(modifier = Modifier.height(if (isLandscape) 15.dp else maxOf(bottomPaddingDp, 40).dp))
     }
 }
 
@@ -324,7 +359,7 @@ fun EmojiCategoryTab(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    
+
     Box(
         modifier = modifier
             .height(30.dp)
@@ -392,17 +427,20 @@ fun PluginEmojiButton(
     val config = emojiItem.displayConfig
     val heightDp = config?.heightDp ?: defaultHeightDp
     val aspectRatio = config?.aspectRatio
-    
-    val isLightTheme = (backgroundColor.red + backgroundColor.green + backgroundColor.blue) / 3f > 0.5f
+
+    val isLightTheme =
+        (backgroundColor.red + backgroundColor.green + backgroundColor.blue) / 3f > 0.5f
     val buttonBackgroundColor = if (isLightTheme) Color.White.copy(alpha = 0.8f)
-                                else Color.LightGray.copy(alpha = 0.15f)
+    else Color.LightGray.copy(alpha = 0.15f)
     val contentColor = if (isLightTheme) Color.Black else textColor
-    
+
     Box(
         modifier = modifier
             .height(heightDp.dp)
             .then(
-                if (emojiItem.imageUrl != null && aspectRatio != null) Modifier.aspectRatio(aspectRatio)
+                if (emojiItem.imageUrl != null && aspectRatio != null) Modifier.aspectRatio(
+                    aspectRatio
+                )
                 else if (emojiItem.imageUrl != null) Modifier.aspectRatio(1f)
                 else Modifier.fillMaxWidth()
             )

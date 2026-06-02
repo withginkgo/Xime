@@ -8,15 +8,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,6 +42,7 @@ fun SchemaListView(
     backgroundColor: Color,
     accentColor: Color,
     onSelectSchema: (String) -> Unit,
+    onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val itemBgColor = if (isDarkTheme) Color(0xFF45474A) else Color.White
@@ -51,23 +55,54 @@ fun SchemaListView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
-            .padding(horizontal = if (isLandscape) 50.dp else 16.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(backgroundColor),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (schemas.isEmpty()) {
+        // 导航区
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(horizontal = if (isLandscape) 50.dp else 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
+                    .clickable { onBack?.invoke() },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "没有可用的输入方案",
-                    color = subTextColor,
-                    fontSize = 13.sp
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowLeft,
+                    contentDescription = "返回",
+                    tint = textColor,
+                    modifier = Modifier.size(24.dp)
                 )
             }
-        } else {
+        }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = if (isLandscape) 50.dp else 16.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceAround
+        ) {
+            if (schemas.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "没有可用的输入方案",
+                        color = subTextColor,
+                        fontSize = 13.sp
+                    )
+                }
+            } else {
             val rows = schemas.chunked(columns)
             rows.forEachIndexed { rowIndex, rowItems ->
                 Row(
@@ -97,6 +132,7 @@ fun SchemaListView(
                 }
             }
         }
+    }
     }
 }
 

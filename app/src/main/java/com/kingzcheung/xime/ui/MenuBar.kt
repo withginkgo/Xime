@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.EmojiEmotions
 import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.Refresh
@@ -77,6 +78,7 @@ fun MenuBar(
     onSchemaList: () -> Unit,
     onToggleDarkMode: () -> Unit,
     onToolbarCustomize: () -> Unit = {},
+    bottomPaddingDp: Int = 0,
     modifier: Modifier = Modifier
 ) {
     if (!isVisible) return
@@ -100,18 +102,44 @@ fun MenuBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(backgroundColor)
-            .padding(vertical = if (isLandscape) 8.dp else 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(backgroundColor),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // 导航区（与候选栏高度一致）
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+                .padding(horizontal = if (isLandscape) 50.dp else 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
+                    .clickable { onDismiss() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = "关闭菜单",
+                    tint = textColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // 内容区（菜单项）
         if (isLandscape) {
             // 横屏：一行 8 列
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = if (isLandscape) 50.dp else 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 50.dp)
+                    .weight(1f),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 menuItems.forEach { item ->
                     MenuItemButton(
@@ -131,9 +159,11 @@ fun MenuBar(
             }
             val pagerState = rememberPagerState(pageCount = { pages.size })
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.SpaceAround
             ) {
                 HorizontalPager(
                     state = pagerState,
@@ -163,7 +193,7 @@ fun MenuBar(
                 }
 
                 if (pages.size > 1) {
-                    Spacer(modifier = Modifier.height(8.dp))
+
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -181,6 +211,7 @@ fun MenuBar(
                             )
                         }
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }

@@ -174,7 +174,6 @@ fun KeyboardView(
                     isShifted = false
                 },
                 onShowMoreCandidates = { currentRoute = KeyboardRoute.CandidatePage },
-                onClipboardTabChange = { currentRoute = KeyboardRoute.Clipboard(it) },
                 onInputTextClick = {
                     if (inputText.isNotEmpty()) {
                         onClipboardSelect?.invoke(inputText)
@@ -212,88 +211,6 @@ fun KeyboardView(
                         recognitionState = voiceRecognitionState,
                         recognizedText = voiceRecognizedText,
                         amplitude = voiceAmplitude
-                    )
-                }
-
-                currentRoute is KeyboardRoute.Menu -> {
-                    MenuBar(
-                        isVisible = true,
-                        isDarkTheme = isDarkTheme,
-                        backgroundColor = keyboardBgColor,
-                        onDismiss = { currentRoute = KeyboardRoute.Keyboard },
-                        onClipboard = { currentRoute = KeyboardRoute.Clipboard(0); onClipboard?.invoke() },
-                        onQuickSend = { currentRoute = KeyboardRoute.Clipboard(1); onQuickSend?.invoke() },
-                        onKeyboardResize = { onKeyboardResize?.invoke(); currentRoute = KeyboardRoute.Keyboard },
-                        onEmoji = { currentRoute = KeyboardRoute.Emoji },
-                        onReloadConfig = { onReloadConfig?.invoke(); currentRoute = KeyboardRoute.Keyboard },
-                        onSettings = { onSettings?.invoke(); currentRoute = KeyboardRoute.Keyboard },
-                        onSchemaList = { currentRoute = KeyboardRoute.SchemaList },
-                        onToggleDarkMode = { onToggleDarkMode?.invoke() },
-                        onToolbarCustomize = { currentRoute = KeyboardRoute.ToolbarCustomize },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                currentRoute is KeyboardRoute.Clipboard -> {
-                    ClipboardView(
-                        clipboardItems = clipboardItems,
-                        quickSendItems = quickSendItems,
-                        selectedTab = clipboardTab,
-                        isDarkTheme = isDarkTheme,
-                        backgroundColor = keyboardBgColor,
-                        onSelectItem = { text ->
-                            onClipboardSelect?.invoke(text)
-                            currentRoute = KeyboardRoute.Keyboard
-                        },
-                        onRemoveItem = { id -> onClipboardRemove?.invoke(id) },
-                        onTogglePin = { id -> onClipboardTogglePin?.invoke(id) },
-                        onAddToQuickSend = { id -> onAddToQuickSend?.invoke(id) },
-                        onRemoveFromQuickSend = { id -> onRemoveFromQuickSend?.invoke(id) },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                currentRoute is KeyboardRoute.SchemaList -> {
-                    SchemaListView(
-                        schemas = schemas,
-                        currentSchemaId = currentSchemaId,
-                        isDarkTheme = isDarkTheme,
-                        backgroundColor = keyboardBgColor,
-                        accentColor = accentColor,
-                        onSelectSchema = { schemaId ->
-                            onSwitchSchema?.invoke(schemaId)
-                            currentRoute = KeyboardRoute.Keyboard
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                currentRoute is KeyboardRoute.ToolbarCustomize -> {
-                    ToolbarCustomizeView(
-                        toolbarButtons = toolbarButtons,
-                        keyTextColor = keyTextColor,
-                        keyBgColor = keyboardBgColor,
-                        accentColor = accentColor,
-                        onUpdateToolbarButtons = onUpdateToolbarButtons,
-                        onDismiss = { currentRoute = KeyboardRoute.Keyboard },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                currentRoute is KeyboardRoute.Emoji -> {
-                    EmojiKeyboardLayout(
-                        onEmojiSelect = { emoji ->
-                            if (emoji == "delete") {
-                                onKeyPress("delete", false)
-                            } else {
-                                onClipboardSelect?.invoke(emoji)
-                            }
-                        },
-                        onImageEmojiSelect = onCommitImage,
-                        onBack = { currentRoute = KeyboardRoute.Keyboard },
-                        backgroundColor = candidateBarBg,
-                        textColor = keyTextColor,
-                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -527,6 +444,85 @@ fun KeyboardView(
                         )
                     }
                 }
+            }
+        }
+
+        // 菜单覆盖层：覆盖整个键盘视图（包括候选栏）
+        if (currentRoute !is KeyboardRoute.Keyboard && currentRoute !is KeyboardRoute.CandidatePage && !isVoiceMode) {
+            when (currentRoute) {
+                is KeyboardRoute.Menu -> MenuBar(
+                isVisible = true,
+                isDarkTheme = isDarkTheme,
+                backgroundColor = keyboardBgColor,
+                bottomPaddingDp = keyboardBottomPaddingDp,
+                onDismiss = { currentRoute = KeyboardRoute.Keyboard },
+                onClipboard = { currentRoute = KeyboardRoute.Clipboard(0); onClipboard?.invoke() },
+                onQuickSend = { currentRoute = KeyboardRoute.Clipboard(1); onQuickSend?.invoke() },
+                onKeyboardResize = { onKeyboardResize?.invoke(); currentRoute = KeyboardRoute.Keyboard },
+                onEmoji = { currentRoute = KeyboardRoute.Emoji },
+                onReloadConfig = { onReloadConfig?.invoke(); currentRoute = KeyboardRoute.Keyboard },
+                onSettings = { onSettings?.invoke(); currentRoute = KeyboardRoute.Keyboard },
+                onSchemaList = { currentRoute = KeyboardRoute.SchemaList },
+                onToggleDarkMode = { onToggleDarkMode?.invoke() },
+                onToolbarCustomize = { currentRoute = KeyboardRoute.ToolbarCustomize },
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                )
+                is KeyboardRoute.Clipboard -> ClipboardView(
+                    clipboardItems = clipboardItems,
+                    quickSendItems = quickSendItems,
+                    selectedTab = clipboardTab,
+                    isDarkTheme = isDarkTheme,
+                    backgroundColor = keyboardBgColor,
+                    onSelectItem = { text ->
+                        onClipboardSelect?.invoke(text)
+                        currentRoute = KeyboardRoute.Keyboard
+                    },
+                    onRemoveItem = { id -> onClipboardRemove?.invoke(id) },
+                    onTogglePin = { id -> onClipboardTogglePin?.invoke(id) },
+                    onAddToQuickSend = { id -> onAddToQuickSend?.invoke(id) },
+                    onRemoveFromQuickSend = { id -> onRemoveFromQuickSend?.invoke(id) },
+                    onBack = { currentRoute = KeyboardRoute.Keyboard },
+                    onClipboardTabChange = { currentRoute = KeyboardRoute.Clipboard(it) },
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                )
+                is KeyboardRoute.SchemaList -> SchemaListView(
+                    schemas = schemas,
+                    currentSchemaId = currentSchemaId,
+                    isDarkTheme = isDarkTheme,
+                    backgroundColor = keyboardBgColor,
+                    accentColor = accentColor,
+                    onSelectSchema = { schemaId ->
+                        onSwitchSchema?.invoke(schemaId)
+                        currentRoute = KeyboardRoute.Keyboard
+                    },
+                    onBack = { currentRoute = KeyboardRoute.Menu },
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                )
+                is KeyboardRoute.ToolbarCustomize -> ToolbarCustomizeView(
+                    toolbarButtons = toolbarButtons,
+                    keyTextColor = keyTextColor,
+                    keyBgColor = keyboardBgColor,
+                    accentColor = accentColor,
+                    onUpdateToolbarButtons = onUpdateToolbarButtons,
+                    onDismiss = { currentRoute = KeyboardRoute.Keyboard },
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                )
+                is KeyboardRoute.Emoji -> EmojiKeyboardLayout(
+                    onEmojiSelect = { emoji ->
+                        if (emoji == "delete") {
+                            onKeyPress("delete", false)
+                        } else {
+                            onClipboardSelect?.invoke(emoji)
+                        }
+                    },
+                    onImageEmojiSelect = onCommitImage,
+                    onBack = { currentRoute = KeyboardRoute.Keyboard },
+                    backgroundColor = candidateBarBg,
+                    textColor = keyTextColor,
+                    bottomPaddingDp = keyboardBottomPaddingDp,
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight()
+                )
+                else -> {}
             }
         }
     }

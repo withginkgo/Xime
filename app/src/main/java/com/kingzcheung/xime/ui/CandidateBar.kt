@@ -68,14 +68,13 @@ fun CandidateBar(
     onBack: (() -> Unit)? = null,
     onHideKeyboard: (() -> Unit)? = null,
     onShowMoreCandidates: (() -> Unit)? = null,
-    onClipboardTabChange: ((Int) -> Unit)? = null,
     onInputTextClick: (() -> Unit)? = null,
     associationCandidates: List<String> = emptyList(),
     onAssociationSelect: ((Int) -> Unit)? = null,
     toolbarActions: List<ToolbarAction> = emptyList(),
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
-    val clipboardTab = (currentRoute as? KeyboardRoute.Clipboard)?.tab ?: 0
+    val textColor = if (isDarkTheme) Color(0xFFE8EAED) else Color(0xFF202124)
     val displayCandidates = candidates.take(20)
     val hasMoreCandidates = candidates.size >= 5
     val configuration = LocalConfiguration.current
@@ -182,74 +181,6 @@ fun CandidateBar(
                 .weight(1f).padding(top = 2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (currentRoute is KeyboardRoute.Clipboard) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
-                        .clickable { onBack?.invoke() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = "关闭面板",
-                        tint = accentColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Box(
-                    modifier = Modifier
-                        .height(26.dp)
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
-                        .padding(2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxHeight(),
-                        horizontalArrangement = Arrangement.spacedBy(0.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(11.dp))
-                                .background(if (clipboardTab == 0) accentColor else Color.Transparent)
-                                .clickable { onClipboardTabChange?.invoke(0) }
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "剪贴板",
-                                color = if (clipboardTab == 0) Color.White else textColor,
-                                fontSize = 11.sp,
-                                fontWeight = if (clipboardTab == 0) FontWeight.Medium else FontWeight.Normal
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(11.dp))
-                                .background(if (clipboardTab == 1) accentColor else Color.Transparent)
-                                .clickable { onClipboardTabChange?.invoke(1) }
-                                .padding(horizontal = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "快捷发送",
-                                color = if (clipboardTab == 1) Color.White else textColor,
-                                fontSize = 11.sp,
-                                fontWeight = if (clipboardTab == 1) FontWeight.Medium else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-            } else {
                 if (!isComposing && inputText.isEmpty()) {
                     if (currentRoute is KeyboardRoute.SchemaList && onBack != null) {
                         Box(
@@ -263,22 +194,6 @@ fun CandidateBar(
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowLeft,
                                 contentDescription = "返回菜单",
-                                tint = accentColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    } else if (currentRoute is KeyboardRoute.Menu && onBack != null) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isDarkTheme) Color(0xFF374151) else Color(0xFFF3F4F6))
-                                .clickable { onBack() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowUp,
-                                contentDescription = "关闭菜单",
                                 tint = accentColor,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -472,7 +387,6 @@ fun CandidateBar(
                         }
                     }
                 }
-            }
         }
     }
 }
