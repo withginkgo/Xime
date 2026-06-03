@@ -1285,6 +1285,10 @@ onVoiceModeChange = { enabled ->
                         isShowingRecentClipboard = false
                     )
                 }
+            } else {
+                withContext(Dispatchers.Main) {
+                    updateUI()
+                }
             }
         }
     }
