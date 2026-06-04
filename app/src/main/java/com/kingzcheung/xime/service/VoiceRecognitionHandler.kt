@@ -99,7 +99,7 @@ class VoiceRecognitionHandler(
         }
     }
 
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
     private val delayedPreStartRunnable = Runnable {
         if (::speechRecognitionManager.isInitialized) {
             speechRecognitionManager.startPreStart()
