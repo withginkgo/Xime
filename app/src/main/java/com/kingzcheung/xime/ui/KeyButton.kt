@@ -35,8 +35,10 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
@@ -74,8 +76,9 @@ fun KeyButton(
     var isSwiping by remember { mutableStateOf(false) }
     var isSwipeDown by remember { mutableStateOf(false) }
     
-    val swipeUpThreshold = -50f
-    val swipeDownThreshold = 50f
+    val density = LocalDensity.current
+    val swipeUpThreshold = with(density) { (-15).dp.toPx() }
+    val swipeDownThreshold = with(density) { 15.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
@@ -235,8 +238,9 @@ fun SwipeableKeyButton(
     val currentOnPress by rememberUpdatedState(onPress)
     val currentOnClick by rememberUpdatedState(onClick)
     
-    val swipeUpThreshold = -50f
-    val swipeDownThreshold = 50f
+    val density = LocalDensity.current
+    val swipeUpThreshold = with(density) { (-15).dp.toPx() }
+    val swipeDownThreshold = with(density) { 15.dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
@@ -494,15 +498,16 @@ fun SwipeableIconKeyButton(
     var hasTriggeredLongPress by remember { mutableStateOf(false) }
     var buttonBounds by remember { mutableStateOf(Rect(0f, 0f, 0f, 0f)) }
     
-    val swipeUpThreshold = -50f
-    val swipeDownThreshold = 50f
-    val swipeLeftThreshold = -80f
+    val density = LocalDensity.current
+    val swipeUpThreshold = with(density) { (-15).dp.toPx() }
+    val swipeDownThreshold = with(density) { 15.dp.toPx() }
+    val swipeLeftThreshold = with(density) { (-24).dp.toPx() }
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
     // 上滑清空/下滑撤回需要更大的滑动距离，防止误触
-    val clearActionThreshold = -120f
-    val undoActionThreshold = 120f
+    val clearActionThreshold = with(density) { (-30).dp.toPx() }
+    val undoActionThreshold = with(density) { 30.dp.toPx() }
     
     LaunchedEffect(isLongPress) {
         if (isLongPress && onLongClick != null) {
