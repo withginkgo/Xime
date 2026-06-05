@@ -24,6 +24,8 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.twotone.Cloud
+import androidx.compose.material.icons.twotone.CloudDownload
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.settings.WebDavSyncHelper
 import com.kingzcheung.xime.ui.SettingsSection
@@ -229,7 +232,7 @@ fun WebDavSyncContent(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                             }
-                            Icon(Icons.Default.Cloud, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.TwoTone.Cloud, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("测试连接")
                         }
@@ -273,7 +276,7 @@ fun WebDavSyncContent(
                     )
                 }
 
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -304,10 +307,10 @@ fun WebDavSyncContent(
                             strokeWidth = 2.dp
                         )
                     } else {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.TwoTone.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("上传到服务器")
+                    Text("上传到服务器", fontSize = 12.sp)
                 }
                 Button(
                     onClick = {
@@ -339,10 +342,10 @@ fun WebDavSyncContent(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                     } else {
-                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.TwoTone.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                     }
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("从服务器下载")
+                    Text("从服务器下载", fontSize = 12.sp)
                 }
             }
 
