@@ -567,9 +567,14 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 }
                             },
                             onCursorMove = { direction ->
-                                serviceScope.launch(Dispatchers.Main) {
-                                    val keyCode = if (direction > 0) KeyEvent.KEYCODE_DPAD_RIGHT else KeyEvent.KEYCODE_DPAD_LEFT
-                                    sendDownUpKeyEvents(keyCode)
+                                val ic = currentInputConnection
+                                if (ic != null) {
+                                    val textBefore = ic.getTextBeforeCursor(Int.MAX_VALUE, 0)
+                                    val textAfter = ic.getTextAfterCursor(Int.MAX_VALUE, 0)
+                                    val selStart = textBefore?.length ?: 0
+                                    val totalLen = selStart + (textAfter?.length ?: 0)
+                                    val newSel = (selStart + direction).coerceIn(0, totalLen)
+                                    ic.setSelection(newSel, newSel)
                                 }
                             },
                             onGestureAction = { action, value ->
