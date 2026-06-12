@@ -1194,6 +1194,13 @@ onVoiceModeChange = { enabled ->
             candidatesWithComments.map { it.text }.toTypedArray() to candidatesWithComments.map { it.comment }.toTypedArray()
         }
         
+        val prevInputText = uiState.value.inputText
+        val t9Signal = if (prevInputText.isNotEmpty() && result.inputText.isEmpty()) {
+            uiState.value.t9ResetSignal + 1
+        } else {
+            uiState.value.t9ResetSignal
+        }
+        
         uiState.value = uiState.value.copy(
             inputText = result.inputText,
             candidates = filteredTexts,
@@ -1203,7 +1210,8 @@ onVoiceModeChange = { enabled ->
             associationCandidates = if ((isAsciiMode || !isChineseMode) && pendingEnglish.isEmpty()) emptyArray() else uiState.value.associationCandidates,
             isShowingRecentClipboard = false,
             hasNextPage = result.hasNextPage,
-            hasPrevPage = result.hasPrevPage
+            hasPrevPage = result.hasPrevPage,
+            t9ResetSignal = t9Signal
         )
         
         if (pendingEnglish.isNotEmpty()) {
@@ -1587,7 +1595,8 @@ onVoiceModeChange = { enabled ->
                         isComposing = false,
                         hasNextPage = false,
                         hasPrevPage = false,
-                        isShowingRecentClipboard = false
+                        isShowingRecentClipboard = false,
+                        t9ResetSignal = uiState.value.t9ResetSignal + 1
                     )
                 }
             } else {
