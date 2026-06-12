@@ -324,9 +324,9 @@ fun NineKeyKeyboardLayout(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     KeyButton(text = "符号", onClick = { onKeyPress("symbol") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1.2f), onPress = { onKeyPressDown?.invoke("symbol") })
-                    KeyButton(text = "abc", onClick = { onKeyPress("abc") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(0.8f), onPress = { onKeyPressDown?.invoke("abc") })
-                    KeyButton(text = "空格", onClick = { onKeyPress("space") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(2f), onPress = { onKeyPressDown?.invoke("space") })
                     KeyButton(text = "123", onClick = { onKeyPress("mode_change") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(0.8f), onPress = { onKeyPressDown?.invoke("mode_change") })
+                    KeyButton(text = "空格", onClick = { onKeyPress("space") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(2f), onPress = { onKeyPressDown?.invoke("space") })
+                    KeyButton(text = "abc", onClick = { onKeyPress("abc") }, backgroundColor = keyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(0.8f), onPress = { onKeyPressDown?.invoke("abc") })
                     KeyButton(text = "确定", onClick = { onKeyPress("enter") }, backgroundColor = specialKeyBackgroundColor, textColor = keyTextColor, modifier = Modifier.weight(1.2f), onPress = { onKeyPressDown?.invoke("enter") })
                 }
             }

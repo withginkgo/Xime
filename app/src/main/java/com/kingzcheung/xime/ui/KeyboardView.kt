@@ -248,13 +248,17 @@ fun KeyboardView(
                         amplitude = voiceAmplitude
                     )
                 }
-                !isAsciiMode && currentSchemaId == "t9_pinyin" -> {
+                !isAsciiMode && currentSchemaId == "t9_pinyin" && keyboardState is KeyboardLayoutState.Chinese -> {
                     NineKeyKeyboardLayout(
                         onReplaceFullPinyin = onT9ReplaceFullPinyin ?: {},
                         onKeyPress = { key ->
                             when (key) {
                                 "emoji" -> currentRoute = KeyboardRoute.Emoji
                                 "symbol" -> currentRoute = KeyboardRoute.Symbol
+                                "mode_change" -> keyboardState = keyboardState.transition(
+                                    KeyboardLayoutAction.SwitchToNumber, isAsciiMode
+                                )
+                                "abc" -> onKeyPress("ime_switch", false)
                                 else -> onKeyPress(key, false)
                             }
                         },
