@@ -1,5 +1,7 @@
 pluginManagement {
     repositories {
+        gradlePluginPortal()
+        mavenCentral()
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -16,8 +18,6 @@ pluginManagement {
         maven {
             url = uri("https://maven.aliyun.com/repository/central")
         }
-        mavenCentral()
-        gradlePluginPortal()
     }
 }
 plugins {
