@@ -40,12 +40,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
-import com.kingzcheung.xime.ui.LocalStretchFactor
+import com.kingzcheung.xime.ui.keyboard.LocalStretchFactor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kingzcheung.xime.ui.KeyboardResizeOverlay
-import com.kingzcheung.xime.ui.FloatingCandidateBar
+import com.kingzcheung.xime.ui.keyboard.KeyboardResizeOverlay
+import com.kingzcheung.xime.ui.keyboard.FloatingCandidateBar
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.core.content.FileProvider
@@ -69,7 +69,7 @@ import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.SchemaConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
-import com.kingzcheung.xime.ui.KeyboardView
+import com.kingzcheung.xime.ui.keyboard.KeyboardView
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.XimeTheme
@@ -94,6 +94,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
 
     companion object {
         private const val TAG = "XimeInputMethodService"
+        private const val KEY_PERF = "KeyPerf"
         private const val DARK_MODE_LIGHT = 0
         private const val DARK_MODE_DARK = 1
         private const val DARK_MODE_SYSTEM = 2
@@ -1194,6 +1195,7 @@ onVoiceModeChange = { enabled ->
     }
 
     private fun updateUIWithResult(result: com.kingzcheung.xime.rime.RimeProcessResult) {
+        val t0 = System.nanoTime()
         val isAsciiMode = result.isAsciiMode
         val candidatesWithComments = result.candidates
         
@@ -1228,6 +1230,11 @@ onVoiceModeChange = { enabled ->
                     candidateState.value = candidateState.value.copy(associationCandidates = candidates)
                 }
             }
+        }
+        
+        val elapsed = (System.nanoTime() - t0) / 1_000_000
+        if (elapsed > 5) {
+            FileLogger.d(KEY_PERF, "updateUI: ${elapsed}ms")
         }
     }
 
@@ -1264,7 +1271,14 @@ onVoiceModeChange = { enabled ->
     }
 
     private fun handleKeyPress(key: String, isShifted: Boolean) {
+        val tDispatch = System.nanoTime()
         val job = serviceScope.launch(keyProcessingDispatcher, start = CoroutineStart.LAZY) {
+            val tStart = System.nanoTime()
+            val dispatchDelay = (tStart - tDispatch) / 1_000_000
+            if (dispatchDelay > 5) {
+                FileLogger.w(KEY_PERF, "Key dispatch delay ${dispatchDelay}ms for '$key'")
+            }
+            
             val state = uiState.value
             val candState = candidateState.value
             var needsUIUpdate = false
@@ -1527,7 +1541,12 @@ onVoiceModeChange = { enabled ->
                         val t0 = System.nanoTime()
                         val result = rimeEngine.processKeyAndGetResult(keyCode, mask)
                         val elapsed = (System.nanoTime() - t0) / 1_000_000
-                        if (elapsed > 10) Log.w(TAG, "Key '$key' processed in ${elapsed}ms")
+                        if (elapsed > 5) {
+                            FileLogger.d(KEY_PERF, "Rime processKey '${char}' mask=$mask: ${elapsed}ms")
+                        }
+                        if (elapsed > 10) {
+                            FileLogger.w(KEY_PERF, "Rime slow processKey '${char}' mask=$mask: ${elapsed}ms")
+                        }
 
                         if (result.processed) {
                             needsUIUpdate = true
@@ -1910,7 +1929,12 @@ onVoiceModeChange = { enabled ->
     }
 
     override fun commitText(text: String) {
+        val t0 = System.nanoTime()
         currentInputConnection?.commitText(text, 1)
+        val commitElapsed = (System.nanoTime() - t0) / 1_000_000
+        if (commitElapsed > 5) {
+            FileLogger.d(KEY_PERF, "commitText '$text': ${commitElapsed}ms")
+        }
 
         if (isChineseMode) {
             predictionManager.appendCommittedText(text)
