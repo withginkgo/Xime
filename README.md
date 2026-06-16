@@ -4,7 +4,7 @@
 
 <h1 align="center">Xime（曦码） - 五笔/拼音输入法</h1>
 
-[Xime 输入法 (Windows 版)](https://github.com/ximeiorg/winxime) | [Xime 输入法 (Linux 版)](https://github.com/ximeiorg/xime-wayland)
+[Xime 输入法 (Windows 版)](https://github.com/ximeiorg/winxime) | [Xime 输入法 (Linux 版)](https://github.com/ximeiorg/xime-wayland) | [联想词预测模型](https://github.com/ximeiorg/predictive-text)  | [手写输入法模型](https://github.com/ximeiorg/ochwpro) 
 
 一款基于 <a href="https://rime.im/">Rime</a> 引擎构建的 Android 五笔/拼音输入法，专注于简洁高效的中文输入体验。
 
