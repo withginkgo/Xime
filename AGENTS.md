@@ -16,6 +16,7 @@
 - 所有 commit 必须经过 GPG 签名
 - PR 必须遵循最小修改原则
 - 贡献前请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)
+- 禁止使用 `./gradlew clean`
 
 ## 工作规则
 - 每次只做一个功能点

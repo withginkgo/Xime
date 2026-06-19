@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.settings.UploadResult
 import com.kingzcheung.xime.settings.WirelessImportHelper
 import kotlinx.coroutines.Dispatchers

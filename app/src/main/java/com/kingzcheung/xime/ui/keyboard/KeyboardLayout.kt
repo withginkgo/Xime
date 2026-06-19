@@ -352,10 +352,10 @@ fun KeyboardLayout(
                                         longPressConfig?.values?.associateBy { it.label }
                                     } else null
 
-                                    // 键帽显示文本：中文模式始终显示大写
-                                    val displayText = key.uppercase()
+                                    val displayText = KeysConfigHelper.getKeyDisplayLabel(key)
+                                    val commitValue = KeysConfigHelper.getKeyCommitValue(key)
 
-                                    val onClick = remember(key, onKeyPress) { { onKeyPress(key) } }
+                                    val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
                                     val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
                                     val onSwipeDown = if (swipeDownAction != null && swipeDownLabel != null) {
                                         remember(key, onKeyPress, onGestureAction, swipeDownAction, swipeDownValue, swipeDownLabel) {
@@ -802,11 +802,11 @@ fun KeyboardRowWithConfig(
                 longPressConfig?.values?.associateBy { it.label }
             } else null
 
-            // 键帽显示文本：中文模式始终显示大写
-            val displayText = key.uppercase()
-            val commitValue = key
+            // 键帽显示文本
+            val displayText = KeysConfigHelper.getKeyDisplayLabel(key)
+            val commitValue = KeysConfigHelper.getKeyCommitValue(key)
 
-            val onClick = remember(key, onKeyPress) { { onKeyPress(key) } }
+            val onClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val onPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
             val onSwipeDown: ((String) -> Unit)? = if (swipeDownAction != null && swipeDownHintsEnabled && swipeDownLabel != null) {
                 remember(key, onKeyPress, onGestureAction, swipeDownAction, swipeDownValue, swipeDownLabel) {
@@ -1541,7 +1541,8 @@ fun CompactKeyboardRowWithConfig(
                 longPressConfig?.values?.associateBy { it.label }
             } else null
 
-            val compactOnClick = remember(key, onKeyPress) { { onKeyPress(key) } }
+            val commitValue = KeysConfigHelper.getKeyCommitValue(key)
+            val compactOnClick = remember(key, commitValue, onKeyPress) { { onKeyPress(commitValue) } }
             val compactOnPress: (() -> Unit)? = remember(key, onKeyPressDown) { { onKeyPressDown?.invoke(key); Unit } }
             val compactOnSwipeDown: ((String) -> Unit)? = if (swipeDownAction != null && swipeDownHintsEnabled && swipeDownLabel != null) {
                 remember(key, onKeyPress, onGestureAction, swipeDownAction, swipeDownValue, swipeDownLabel) {
@@ -1570,7 +1571,7 @@ fun CompactKeyboardRowWithConfig(
             } }
 
             CompactSwipeableKeyButton(
-                text = key.uppercase(),
+                text = KeysConfigHelper.getKeyDisplayLabel(key),
                 onClick = compactOnClick,
                 backgroundColor = keyBackgroundColor,
                 textColor = keyTextColor,

@@ -3,12 +3,15 @@ package com.kingzcheung.xime.settings
 import android.content.Context
 import android.util.Log
 import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlException
 import com.charleskorn.kaml.YamlConfiguration
 import com.charleskorn.kaml.YamlMap
 import com.charleskorn.kaml.YamlNode
 import com.charleskorn.kaml.YamlScalar
 import com.charleskorn.kaml.YamlList
+import com.kingzcheung.xime.BuildConfig
 import com.kingzcheung.xime.keyboard.GestureAction
+import androidx.compose.runtime.mutableStateOf
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -188,6 +191,22 @@ data class ColorSchemeEntry(
 )
 
 @Serializable
+data class MetadataConfig(
+    @SerialName("app_name")
+    val appName: String = "Xime",
+    @SerialName("app_version")
+    val appVersion: String = "",
+    @SerialName("platform")
+    val platform: String = "android",
+    @SerialName("config_version")
+    val configVersion: Int = 1,
+    @SerialName("generator")
+    val generator: String = "",
+    @SerialName("modified_time")
+    val modifiedTime: String = "",
+)
+
+@Serializable
 data class StyleConfig(
     @SerialName("color_scheme")
     val colorScheme: String? = null,
@@ -201,8 +220,8 @@ data class XimeConfig(
     val colorSchemes: Map<String, ColorSchemeEntry>? = null,
     @SerialName("style")
     val style: StyleConfig? = null,
-    @SerialName("customization")
-    val customization: Map<String, String>? = null,
+    @SerialName("metadata")
+    val metadata: MetadataConfig? = null,
 )
 
 @Serializable
@@ -228,8 +247,9 @@ object KeysConfigHelper {
         swipeDownEnglish = getDefaultSwipeDownEnglish()
     )
 
-    // 新：手势配置缓存
-    private var keyGestureConfig: Map<String, KeyGestureConfig> = emptyMap()
+    // 手势配置缓存（mutableStateOf 让 Compose 直接观察变更）
+    private val _keyGestureConfig = mutableStateOf<Map<String, KeyGestureConfig>>(emptyMap())
+    val keyGestureConfig: Map<String, KeyGestureConfig> get() = _keyGestureConfig.value
     
     // 键盘颜色配置缓存
     private var keyboardColorsConfig: KeyboardColorsConfig = KeyboardColorsConfig()
@@ -256,11 +276,19 @@ object KeysConfigHelper {
     private fun loadXimeConfig(context: Context) {
         try {
             // 键盘手势（从原始 YAML 手动解析）
-            keyGestureConfig = parseKeyboardFromAssets(context) ?: emptyMap()
+            _keyGestureConfig.value = parseKeyboardFromAssets(context) ?: emptyMap()
             // 键盘颜色（从原始 YAML 手动解析）
             keyboardColorsConfig = parseKeyboardColorsFromAssets(context)
             // 键盘阴影（从原始 YAML 手动解析）
             keyboardShadowConfig = parseKeyboardShadowFromAssets(context)
+            // 校验配置版本兼容性
+            val merged = try { loadMergedConfig(context) } catch (_: YamlException) { null }
+            val meta = merged?.metadata
+            if (meta != null && meta.appVersion.isNotBlank()) {
+                if (!checkVersionConstraint(BuildConfig.VERSION_NAME, meta.appVersion)) {
+                    Log.w(TAG, "Config requires app_version ${meta.appVersion}, current is ${BuildConfig.VERSION_NAME}")
+                }
+            }
             _configVersion.value++
             Log.d(TAG, "Loaded config: ${keyGestureConfig.size} keys (v${_configVersion.value})")
         } catch (e: Exception) {
@@ -268,15 +296,59 @@ object KeysConfigHelper {
         }
     }
 
+    private fun checkVersionConstraint(current: String, constraint: String): Boolean {
+        val operator = when {
+            constraint.startsWith(">=") -> constraint.substring(0, 2)
+            constraint.startsWith("<=") -> constraint.substring(0, 2)
+            constraint.startsWith(">") -> constraint.substring(0, 1)
+            constraint.startsWith("<") -> constraint.substring(0, 1)
+            constraint.startsWith("^") -> constraint.substring(0, 1)
+            constraint.startsWith("~") -> constraint.substring(0, 1)
+            else -> return true
+        }
+        val targetVerStr = constraint.removePrefix(operator).trim('"', '\'', ' ')
+        val targetParts = targetVerStr.split('.').mapNotNull { it.toIntOrNull() }
+        val currentParts = current.split('.').mapNotNull { it.toIntOrNull() }
+        if (targetParts.size < 2 || currentParts.size < 2) return true
+        val t = Triple(targetParts.getOrElse(0) { 0 }, targetParts.getOrElse(1) { 0 }, targetParts.getOrElse(2) { 0 })
+        val c = Triple(currentParts[0], currentParts.getOrElse(1) { 0 }, currentParts.getOrElse(2) { 0 })
+        val cmp = compareVersions(c, t)
+        return when (operator) {
+            ">=" -> cmp >= 0
+            "<=" -> cmp <= 0
+            ">"  -> cmp > 0
+            "<"  -> cmp < 0
+            "^"  -> c.first == t.first && (c.first != 0 || cmp >= 0)
+            "~"  -> c.first == t.first && c.second >= t.second
+            else -> true
+        }
+    }
+
+    private fun compareVersions(a: Triple<Int, Int, Int>, b: Triple<Int, Int, Int>): Int {
+        return when {
+            a.first != b.first -> a.first.compareTo(b.first)
+            a.second != b.second -> a.second.compareTo(b.second)
+            else -> a.third.compareTo(b.third)
+        }
+    }
+
     /** 从 xime.yaml + xime.custom.yaml 合并解析键盘手势配置。 */
     private fun parseKeyboardFromAssets(context: Context): Map<String, KeyGestureConfig>? {
         val defaultText = readAssetText(context, XIME_CONFIG_FILE) ?: return null
         val default = parseKeyboardYamlText(defaultText) ?: return null
-        // 优先从用户数据目录读取自定义覆盖
-        val customText = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
-            ?: readAssetText(context, XIME_CUSTOM_CONFIG_FILE)
-        val custom = customText?.let { parseKeyboardYamlText(it) } ?: return default
-        // 合并：自定义覆盖同名键，默认填充其余键
+        // 支持两种来源：files/rime/（浏览器导入）或 assets/（内置），自动 fallback
+        val userData = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
+        val custom = if (userData != null) {
+            val parsed = parseKeyboardYamlText(userData)
+            Log.d(TAG, "parseKeyboardFromAssets: from=userData(${userData.length}chars), keys=${parsed?.size ?: 0}")
+            parsed
+        } else {
+            val assetText = readAssetText(context, XIME_CUSTOM_CONFIG_FILE)
+            val parsed = assetText?.let { parseKeyboardYamlText(it) }
+            Log.d(TAG, "parseKeyboardFromAssets: from=assets(${assetText?.length ?: 0}chars), keys=${parsed?.size ?: 0}")
+            parsed
+        }
+        if (custom == null) return default
         return default + custom
     }
 
@@ -284,9 +356,10 @@ object KeysConfigHelper {
     private fun parseKeyboardColorsFromAssets(context: Context): KeyboardColorsConfig {
         val defaultText = readAssetText(context, XIME_CONFIG_FILE) ?: return KeyboardColorsConfig()
         val default = parseKeyboardColorsYamlText(defaultText) ?: return KeyboardColorsConfig()
-        val customText = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
-            ?: readAssetText(context, XIME_CUSTOM_CONFIG_FILE) ?: return default
-        val custom = parseKeyboardColorsYamlText(customText)
+        val custom = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
+            ?.let { parseKeyboardColorsYamlText(it) }
+            ?: readAssetText(context, XIME_CUSTOM_CONFIG_FILE)
+                ?.let { parseKeyboardColorsYamlText(it) }
         return custom ?: default
     }
 
@@ -346,9 +419,10 @@ object KeysConfigHelper {
     private fun parseKeyboardShadowFromAssets(context: Context): KeyboardShadowConfig {
         val defaultText = readAssetText(context, XIME_CONFIG_FILE) ?: return KeyboardShadowConfig()
         val default = parseKeyboardShadowYamlText(defaultText) ?: return KeyboardShadowConfig()
-        val customText = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
-            ?: readAssetText(context, XIME_CUSTOM_CONFIG_FILE) ?: return default
-        val custom = parseKeyboardShadowYamlText(customText)
+        val custom = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
+            ?.let { parseKeyboardShadowYamlText(it) }
+            ?: readAssetText(context, XIME_CUSTOM_CONFIG_FILE)
+                ?.let { parseKeyboardShadowYamlText(it) }
         return custom ?: default
     }
 
@@ -383,6 +457,7 @@ object KeysConfigHelper {
             val gestureMap = vNode as? YamlMap ?: continue
             result[key] = parseKeyGestureConfig(gestureMap)
         }
+        Log.d(TAG, "parseKeyboardYamlText: keys=${result.size} [${result.keys.joinToString("")}]")
         return result
     }
 
@@ -392,10 +467,11 @@ object KeysConfigHelper {
             return mergedConfigCache!!
         }
         val default = parseConfig(readAssetText(context, XIME_CONFIG_FILE))
-        val customText = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
+        val custom = readUserDataText(context, XIME_CUSTOM_CONFIG_FILE)
+            ?.let { parseConfig(it) }
             ?: readAssetText(context, XIME_CUSTOM_CONFIG_FILE)
-        Log.d(TAG, "loadMergedConfig: customText=${customText != null}, len=${customText?.length}")
-        val custom = parseConfig(customText)
+                ?.let { parseConfig(it) }
+        Log.d(TAG, "loadMergedConfig: custom=${custom != null}")
         val config = mergeConfig(default, custom)
         mergedConfigCache = config
         mergedConfigVersion = currentVersion
@@ -419,7 +495,7 @@ object KeysConfigHelper {
             ximeIndex = custom.ximeIndex ?: default.ximeIndex,
             colorSchemes = custom.colorSchemes ?: default.colorSchemes,
             style = custom.style ?: default.style,
-            customization = custom.customization ?: default.customization,
+            metadata = custom.metadata ?: default.metadata,
         )
     }
 
@@ -478,6 +554,17 @@ object KeysConfigHelper {
 
     /** 获取某个按键的手势配置。 */
     fun getKeyGesture(key: String): KeyGestureConfig? = keyGestureConfig[key.lowercase()]
+
+    fun getKeyDisplayLabel(key: String): String {
+        val label = keyGestureConfig[key.lowercase()]?.tap?.label
+        if (label.isNullOrEmpty()) return key.uppercase()
+        return if (label.any { it in 'a'..'z' || it in 'A'..'Z' }) label.uppercase() else label
+    }
+
+    fun getKeyCommitValue(key: String): String {
+        val value = keyGestureConfig[key.lowercase()]?.tap?.value
+        return value?.takeIf { it.isNotEmpty() } ?: key
+    }
 
     /** 获取某个按键指定手势的显示标签。 */
     fun getGestureLabel(key: String, gesture: String): String? {

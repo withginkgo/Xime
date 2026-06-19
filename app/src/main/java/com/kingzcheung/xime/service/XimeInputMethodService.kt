@@ -1897,6 +1897,10 @@ onVoiceModeChange = { enabled ->
                 val deployResult = rimeEngine.deploy()
                 Log.d(TAG, "Deploy result: $deployResult")
                 
+                // 部署完成后重新加载配置（Rime 可能在部署过程中改写文件）
+                KeysConfigHelper.loadConfig(this@XimeInputMethodService)
+                KeyboardThemes.reload(this@XimeInputMethodService)
+                
                 val availableSchemas = rimeEngine.getAvailableSchemas()
                 Log.d(TAG, "Available schemas: ${availableSchemas.joinToString()}")
                 

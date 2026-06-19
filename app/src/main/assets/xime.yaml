@@ -1,9 +1,10 @@
-customization:
-  distribution_code_name: Xime
-  distribution_version: 0.13.3
-  generator: "Xime"
-  modified_time: "2026-06-09"
-  rime_version: 0.14.3
+metadata:
+  app_name: Xime
+  app_version: ">=2.4.2"
+  platform: android
+  config_version: 1
+  generator: "Xime Config Generator" # 暂时无用
+  modified_time: "2026-06-18"
 
 xime_index:
   # 方案/插件/模型市场索引端点（ximeiorg/xime-index）。
