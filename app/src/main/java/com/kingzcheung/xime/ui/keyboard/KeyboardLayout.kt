@@ -51,6 +51,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
@@ -308,15 +309,16 @@ fun KeyboardLayout(
                                 .weight(1f)
                                 .background(keyboardBackgroundColor),
                         ) {
-                            IconKeyButton(
+                            Row3KeyButton(
                                 icon = rememberVectorPainter(Icons.TwoTone.EmojiEmotions),
-                                onClick = { onKeyPress("emoji") },
+                                onKeyPress = onKeyPress,
+                                onGestureAction = onGestureAction,
+                                onKeyPressDown = onKeyPressDown,
                                 backgroundColor = specialKeyBackgroundColor,
                                 iconColor = keyTextColor,
                                 modifier = Modifier
                                     .width(40.dp)
                                     .fillMaxHeight(),
-                                onPress = { onKeyPressDown?.invoke("emoji") },
                                 shadowEnabled = shadowEnabled,
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
@@ -468,21 +470,21 @@ fun KeyboardLayout(
                                 shadowShapeRadius = shadowShapeRadius,
                             )
 
+                            val row4k2 = KeysConfigHelper.getKeyGesture("row4_key2")
+                            val k2Tap = row4k2?.tap?.value?.takeIf { it.isNotEmpty() } ?: "，"
+                            val k2Swipe = row4k2?.swipeUp?.value?.takeIf { it.isNotEmpty() } ?: "。"
                             SwipeableKeyButton(
-                                text = "，",
-                                onClick = { onKeyPress("，") },
+                                text = k2Tap,
+                                onClick = { onKeyPress(k2Tap) },
                                 backgroundColor = keyBackgroundColor,
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(0.8f),
-                                swipeText = "。",
-                                onSwipe = { onSwipeText -> onKeyPress(onSwipeText) },
+                                swipeText = k2Swipe,
+                                onSwipe = { onKeyPress(it) },
                                 onSwipeStateChange = { state, bounds ->
-                                    processSwipeState(
-                                        state,
-                                        bounds
-                                    )
+                                    processSwipeState(state, bounds)
                                 },
-                                onPress = { onKeyPressDown?.invoke("。") },
+                                onPress = { onKeyPressDown?.invoke(k2Swipe) },
                                 shadowEnabled = shadowEnabled,
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
@@ -608,13 +610,23 @@ fun KeyboardLayout(
                                 modifier = Modifier.weight(1.2f)
                             )
                         } else {
+                            val row4k4 = KeysConfigHelper.getKeyGesture("row4_key4")
+                            val k4Action = row4k4?.tap?.action
+                            val k4Value = row4k4?.tap?.value ?: "ime_switch"
+                            val k4Label = row4k4?.tap?.label?.takeIf { it.isNotEmpty() } ?: "中"
                             KeyButton(
-                                text = "中",
-                                onClick = { onKeyPress("ime_switch") },
+                                text = k4Label,
+                                onClick = {
+                                    if (k4Action != null && k4Action != GestureAction.COMMIT) {
+                                        onGestureAction?.invoke(k4Action, k4Value)
+                                    } else {
+                                        onKeyPress(k4Value)
+                                    }
+                                },
                                 backgroundColor = specialKeyBackgroundColor,
                                 textColor = keyTextColor,
                                 modifier = Modifier.weight(0.8f),
-                                onPress = { onKeyPressDown?.invoke("ime_switch") },
+                                onPress = { onKeyPressDown?.invoke(k4Value) },
                                 shadowEnabled = shadowEnabled,
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
@@ -831,6 +843,41 @@ fun KeyboardRowWithConfig(
     }
 }
 
+@Composable
+private fun Row3KeyButton(
+    icon: Painter,
+    onKeyPress: (String) -> Unit,
+    onGestureAction: ((GestureAction, String) -> Unit)?,
+    onKeyPressDown: ((String) -> Unit)?,
+    backgroundColor: Color,
+    iconColor: Color,
+    modifier: Modifier = Modifier,
+    shadowEnabled: Boolean = true,
+    shadowElevation: Dp = 1.dp,
+    shadowShapeRadius: Dp = 8.dp,
+) {
+    val tap = KeysConfigHelper.getKeyGesture("row3_key1")?.tap
+    val action = tap?.action
+    val value = tap?.value?.takeIf { it.isNotEmpty() } ?: "emoji"
+    IconKeyButton(
+        icon = icon,
+        onClick = {
+            if (action != null && action != GestureAction.COMMIT) {
+                onGestureAction?.invoke(action, value)
+            } else {
+                onKeyPress(value)
+            }
+        },
+        backgroundColor = backgroundColor,
+        iconColor = iconColor,
+        modifier = modifier,
+        onPress = { onKeyPressDown?.invoke(value) },
+        shadowEnabled = shadowEnabled,
+        shadowElevation = shadowElevation,
+        shadowShapeRadius = shadowShapeRadius,
+    )
+}
+
 /**
  * 横屏分体键盘内容 — 当 [KeyboardLayout.isLandscape] 为 true 时渲染。
  * 将键盘拆分为左右两个面板，紧贴屏幕左右边缘，中间留空方便双手持机拇指操作。
@@ -949,27 +996,31 @@ private fun LandscapeKeyboardContent(
                     .fillMaxWidth()
                     .weight(1f),
             ) {
-                IconKeyButton(
+                Row3KeyButton(
                     icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
-                    onClick = { onKeyPress("emoji") },
+                    onKeyPress = onKeyPress,
+                    onGestureAction = onGestureAction,
+                    onKeyPressDown = onKeyPressDown,
                     backgroundColor = specialKeyBackgroundColor,
                     iconColor = keyTextColor,
                     modifier = Modifier.weight(1.2f),
-                    onPress = { onKeyPressDown?.invoke("emoji") },
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
                 )
+                val row4k2 = KeysConfigHelper.getKeyGesture("row4_key2")
+                val k2Tap = row4k2?.tap?.value?.takeIf { it.isNotEmpty() } ?: "，"
+                val k2Swipe = row4k2?.swipeUp?.value?.takeIf { it.isNotEmpty() } ?: "。"
                 CompactSwipeableKeyButton(
-                    text = "，",
-                    onClick = { onKeyPress("，") },
+                    text = k2Tap,
+                    onClick = { onKeyPress(k2Tap) },
                     backgroundColor = keyBackgroundColor,
                     textColor = keyTextColor,
                     modifier = Modifier.weight(0.8f),
-                    swipeText = "。",
+                    swipeText = k2Swipe,
                     swipeFontSize = landscapeSwipeFontSize,
-                    onSwipe = { onSwipeText -> onKeyPress(onSwipeText) },
-                    onPress = { onKeyPressDown?.invoke("。") },
+                    onSwipe = { onKeyPress(it) },
+                    onPress = { onKeyPressDown?.invoke(k2Swipe) },
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
@@ -1122,13 +1173,23 @@ private fun LandscapeKeyboardContent(
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,
                 )
+                val row4k4 = KeysConfigHelper.getKeyGesture("row4_key4")
+                val k4Action = row4k4?.tap?.action
+                val k4Value = row4k4?.tap?.value ?: "ime_switch"
+                val k4Label = row4k4?.tap?.label?.takeIf { it.isNotEmpty() } ?: "中"
                 KeyButton(
-                    text = "中",
-                    onClick = { onKeyPress("ime_switch") },
+                    text = k4Label,
+                    onClick = {
+                        if (k4Action != null && k4Action != GestureAction.COMMIT) {
+                            onGestureAction?.invoke(k4Action, k4Value)
+                        } else {
+                            onKeyPress(k4Value)
+                        }
+                    },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,
                     modifier = Modifier.weight(0.8f),
-                    onPress = { onKeyPressDown?.invoke("ime_switch") },
+                    onPress = { onKeyPressDown?.invoke(k4Value) },
                     shadowEnabled = shadowEnabled,
                     shadowElevation = shadowElevation,
                     shadowShapeRadius = shadowShapeRadius,

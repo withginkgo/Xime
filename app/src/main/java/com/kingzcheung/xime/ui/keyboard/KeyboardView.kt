@@ -37,6 +37,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.kingzcheung.xime.keyboard.GestureAction
 import com.kingzcheung.xime.keyboard.KeyboardRoute
 import com.kingzcheung.xime.keyboard.ToolbarAction
 import com.kingzcheung.xime.keyboard.ToolbarButton
@@ -330,7 +331,22 @@ fun KeyboardView(
                             isSttEnabled = state.isSttEnabled,
                             isVoiceMode = state.isVoiceMode,
                             onCursorMove = callbacks.onCursorMove,
-                            onGestureAction = callbacks.onGestureAction,
+                            onGestureAction = { action, value ->
+                                when (action) {
+                                    GestureAction.SWITCH_ROUTE -> {
+                                        val route = when (value) {
+                                            "emoji" -> KeyboardRoute.Emoji
+                                            "symbol" -> KeyboardRoute.Symbol
+                                            else -> null
+                                        }
+                                        if (route != null) viewModel.setRoute(route)
+                                    }
+                                    GestureAction.TOGGLE_ASCII -> {
+                                        callbacks.onKeyPress("ime_switch", state.isAsciiMode)
+                                    }
+                                    else -> callbacks.onGestureAction?.invoke(action, value)
+                                }
+                            },
                             currentSchemaId = state.currentSchemaId,
                         )
                     }
