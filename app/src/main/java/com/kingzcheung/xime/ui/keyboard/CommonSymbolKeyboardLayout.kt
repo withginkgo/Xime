@@ -96,7 +96,7 @@ fun CommonSymbolKeyboardLayout(
                     .weight(1f),
             ) {
                 (0..9).forEach { n ->
-                    val digit = n.toString()
+                    val digit = ((n+1)%10).toString()
                     KeyButton(
                         text = digit,
                         onClick = { onKeyPress(digit) },
