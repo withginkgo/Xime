@@ -1,4 +1,4 @@
-package com.kingzcheung.xime.ui.keyboard
+﻿package com.kingzcheung.xime.ui.keyboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -226,7 +226,7 @@ fun KeyButton(
                     )
                 }
             }
-            .padding(horizontal = 2.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -270,7 +270,7 @@ fun SwipeableKeyButton(
     isHighlighted: Boolean = false,
     swipeText: String? = null,
     swipeDownText: String? = null,
-    /** 下滑文本显示在按键上（气泡为空，用于 display:key�? */
+    /** 下滑文本显示在按键上（气泡为空，用于 display:key） */
     swipeDownKeyLabel: String? = null,
     /** 上滑文本显示在按键上（气泡则为空，用于 display:bubble） */
     swipeUpKeyLabel: String? = null,
@@ -505,7 +505,7 @@ fun SwipeableKeyButton(
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
-            .padding(horizontal = 2.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -641,7 +641,7 @@ fun IconKeyButton(
                     }
                 )
             }
-            .padding(horizontal = 2.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
@@ -719,7 +719,7 @@ fun SwipeableIconKeyButton(
     val bubbleShowThresholdUp = swipeUpThreshold * 0.3f
     val bubbleShowThresholdDown = swipeDownThreshold * 0.3f
     
-    // 上滑清空/下滑撤回需要更大的滑动距离，防止误�?
+    // 上滑清空/下滑撤回需要更大的滑动距离，防止误触
     val clearActionThreshold = with(density) { (-50).dp.toPx() }
     val undoActionThreshold = with(density) { 50.dp.toPx() }
     
@@ -893,7 +893,7 @@ fun SwipeableIconKeyButton(
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
-            .padding(horizontal = 2.dp, vertical = 2.dp)
+            .padding(horizontal = 2.dp, vertical = 4.25.dp)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(
