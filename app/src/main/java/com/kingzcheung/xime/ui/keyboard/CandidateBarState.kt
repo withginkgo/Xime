@@ -58,7 +58,7 @@ sealed interface CandidateBarState {
                         candidates = candidates,
                         comments = candidateComments,
                         inputText = inputText,
-                        hasMore = hasNextPage,
+                        hasMore = hasCandidates && hasNextPage,
                         associationCandidates = associationCandidates,
                     )
                 !isComposing && !hasInput && hasAssociations && !hasCandidates ->
@@ -71,7 +71,7 @@ sealed interface CandidateBarState {
                         candidates = candidates,
                         comments = candidateComments,
                         inputText = inputText,
-                        hasMore = hasNextPage,
+                        hasMore = hasCandidates && hasNextPage,
                     )
                 else -> Idle
             }

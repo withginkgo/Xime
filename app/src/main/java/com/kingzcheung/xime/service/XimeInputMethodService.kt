@@ -1517,19 +1517,26 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             )
                         }
                         Log.d(TAG, "Space: added space after pending English '$pendingEnglish'")
-                    } else if (candState.isComposing) {
-                        if (candState.candidates.isNotEmpty()) {
-                            selectCandidateAsync(0)
+                    } else if (rimeEngine.getInput().isNotEmpty()) {
+                        val candidates = rimeEngine.getCandidates()
+                        val textToCommit = if (candidates.isNotEmpty()) {
+                            candidates[0]
                         } else {
-                            val input = candState.inputText
-                            if (input.isNotEmpty()) {
-                                withContext(Dispatchers.Main) {
-                                    commitText(input)
-                                }
-                                rimeEngine.clearComposition()
-                                needsUIUpdate = true
-                            }
+                            rimeEngine.getInput()
                         }
+                        withContext(Dispatchers.Main) {
+                            commitText(textToCommit)
+                            candidateState.value = candidateState.value.copy(
+                                inputText = "",
+                                candidates = emptyList(),
+                                candidateComments = emptyList(),
+                                isComposing = false,
+                                hasNextPage = false,
+                                hasPrevPage = false,
+                                isShowingRecentClipboard = false
+                            )
+                        }
+                        rimeEngine.clearComposition()
                     } else {
                         withContext(Dispatchers.Main) {
                             commitText(" ")

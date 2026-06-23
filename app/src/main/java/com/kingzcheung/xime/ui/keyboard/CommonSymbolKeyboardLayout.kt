@@ -87,7 +87,7 @@ fun CommonSymbolKeyboardLayout(
             modifier = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
-                .padding(vertical = 8.dp, horizontal = 4.dp),
+                .padding(start = 4.dp, end = 4.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(KeyboardDimensions.RowSpacing),
         ) {
             Row(
@@ -96,7 +96,7 @@ fun CommonSymbolKeyboardLayout(
                     .weight(1f),
             ) {
                 (0..9).forEach { n ->
-                    val digit = n.toString()
+                    val digit = ((n+1)%10).toString()
                     KeyButton(
                         text = digit,
                         onClick = { onKeyPress(digit) },
@@ -212,7 +212,7 @@ fun CommonSymbolKeyboardLayout(
                     fontSize = 14.sp,
                 )
                 KeyButton(
-                    text = "数字",
+                    text = "123",
                     onClick = { onKeyPress("number") },
                     backgroundColor = specialKeyBackgroundColor,
                     textColor = keyTextColor,

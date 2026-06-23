@@ -187,15 +187,16 @@ fun CandidateBar(
 
     Column(
         modifier = modifier
-            .padding(vertical = 0.dp)
             .fillMaxWidth()
             .height(50.dp)
             .background(visuals.backgroundColor)
-            .padding(horizontal = horizontalPadding)
+            .padding(horizontal = horizontalPadding),
+        verticalArrangement = Arrangement.Center
     ) {
-        if (showInputTextRow) {
-            val inputText = (state as? CandidateBarState.ChineseCandidates)?.inputText ?: ""
-            val showInputText = inputText.isNotEmpty()
+        val inputText = (state as? CandidateBarState.ChineseCandidates)?.inputText ?: ""
+        val showInputText = showInputTextRow && inputText.isNotEmpty()
+
+        if (showInputText) {
             val inputTextInteractionSource = remember { MutableInteractionSource() }
             val isInputTextPressed by inputTextInteractionSource.collectIsPressedAsState()
 
@@ -207,34 +208,31 @@ fun CandidateBar(
                 contentAlignment = Alignment.CenterStart,
 
             ) {
-                if (showInputText) {
-                    Text(
-                        text = inputText,
-                        color = visuals.textColor.copy(alpha = 0.8f),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal,
-                        lineHeight = 16.sp,
-                        maxLines = 1,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                if (isInputTextPressed && callbacks.onInputTextClick != null)
-                                    (if (visuals.isDarkTheme) Color.White.copy(alpha = 0.15f) else Color.Black.copy(
-                                        alpha = 0.1f
-                                    ))
-                                else
-                                    Color.Transparent
-                            )
-                            .padding(horizontal = 0.dp)
-                    )
-                }
+                Text(
+                    text = inputText,
+                    color = visuals.textColor.copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Normal,
+                    lineHeight = 16.sp,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(
+                            if (isInputTextPressed && callbacks.onInputTextClick != null)
+                                (if (visuals.isDarkTheme) Color.White.copy(alpha = 0.15f) else Color.Black.copy(
+                                    alpha = 0.1f
+                                ))
+                            else
+                                Color.Transparent
+                        )
+                        .padding(horizontal = 0.dp)
+                )
             }
         }
 
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f).padding(top = 2.dp),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (showLeftIcon) {

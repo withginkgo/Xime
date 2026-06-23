@@ -135,7 +135,7 @@ fun EnglishKeyboardLayout(
                     .fillMaxWidth()
                     .fillMaxHeight()
                     .background(keyboardBackgroundColor)
-                    .padding(vertical = 8.dp, horizontal = 4.dp)
+                    .padding(start = 4.dp, end = 4.dp, bottom = 8.dp)
             ) {
                 Column(
                     modifier = Modifier.fillMaxWidth().weight(1f),
