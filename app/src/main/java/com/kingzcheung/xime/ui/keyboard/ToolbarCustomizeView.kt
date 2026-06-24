@@ -177,6 +177,7 @@ fun ToolbarCustomizeView(
                                             shape = CircleShape
                                         )
                                         .clickable { toggleButton(button) },
+
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -190,6 +191,7 @@ fun ToolbarCustomizeView(
                                     text = button.label,
                                     fontSize = 10.sp,
                                     color = keyTextColor.copy(alpha = 0.8f),
+                                    lineHeight = 1.sp,
                                     maxLines = 1
                                 )
                             }

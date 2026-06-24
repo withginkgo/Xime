@@ -49,6 +49,7 @@ import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.viewmodel.KeyboardUiState
 import com.kingzcheung.xime.viewmodel.KeyboardViewModel
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 val LocalStretchFactor = compositionLocalOf { 1f }
 val LocalSuppressCursorMove = compositionLocalOf { mutableStateOf(false) }
@@ -58,12 +59,14 @@ fun KeyboardView(
     viewModel: KeyboardViewModel,
     state: KeyboardUiState,
     callbacks: KeyboardCallbacks,
+    floatingCardWidthDp: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val isShifted by viewModel.isShifted.collectAsStateWithLifecycle()
     val keyboardState by viewModel.keyboardState.collectAsStateWithLifecycle()
     val currentRoute by viewModel.currentRoute.collectAsStateWithLifecycle()
-    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = if (state.isFloatingMode) false
+        else LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     SideEffect {
         val active = (keyboardState is KeyboardLayoutState.Chinese || keyboardState is KeyboardLayoutState.Stroke) && currentRoute == KeyboardRoute.Keyboard
@@ -100,12 +103,25 @@ fun KeyboardView(
     val dividerColor = if (state.isDarkTheme) androidx.compose.ui.graphics.Color(0xFF3C4043) else androidx.compose.ui.graphics.Color(0xFFDADCE0)
 
     val clipboardTab = (currentRoute as? KeyboardRoute.Clipboard)?.tab ?: 0
+    val screenW = LocalConfiguration.current.screenWidthDp
+    val screenH = LocalConfiguration.current.screenHeightDp
+    val cardWidthDp = (minOf(screenW, screenH) * 0.85f).roundToInt()
+    val floatScaleFactor = if (state.isFloatingMode) cardWidthDp.toFloat() / screenW.toFloat() else 0.85f
 
-    Box(modifier = modifier.background(keyboardBgColor)) {
+    val contentModifier = modifier.background(keyboardBgColor)
+    FloatingKeyboardContainer(
+        isFloatingMode = state.isFloatingMode,
+        scaleFactor = floatScaleFactor,
+        offsetX = state.floatingOffsetX,
+        offsetY = state.floatingOffsetY,
+        backgroundColor = keyboardBgColor,
+        onDrag = { dx, dy -> callbacks.onFloatingKeyboardDrag?.invoke(dx, dy) },
+        onDragEnd = { callbacks.onFloatingKeyboardDragEnd?.invoke() },
+    ) {
+    Box(modifier = contentModifier) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight()
         ) {
             val candidateBarState = remember(
                 state.candidates, state.candidateComments, state.inputText, state.preeditText, state.isComposing,
@@ -128,6 +144,7 @@ fun KeyboardView(
             CandidateBar(
                 state = candidateBarState,
                 currentRoute = currentRoute,
+                isFloatingMode = state.isFloatingMode,
                 toolbarActions = state.toolbarButtons.mapNotNull { id ->
                     val button = ToolbarButton.fromId(id) ?: return@mapNotNull null
                     val onClick: () -> Unit = when (button) {
@@ -141,6 +158,7 @@ fun KeyboardView(
                         ToolbarButton.PASTE -> ({ callbacks.onToolbarEditingAction?.invoke("paste") })
                         ToolbarButton.HOME -> ({ callbacks.onToolbarEditingAction?.invoke("home") })
                         ToolbarButton.END -> ({ callbacks.onToolbarEditingAction?.invoke("end") })
+                        ToolbarButton.FLOAT -> ({ callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode) })
                     }
                     ToolbarAction(button, onClick)
                 },
@@ -416,6 +434,8 @@ fun KeyboardView(
                 onSchemaList = { viewModel.setRoute(KeyboardRoute.SchemaList) },
                 onToggleDarkMode = { callbacks.onToggleDarkMode?.invoke() },
                 onToolbarCustomize = { viewModel.setRoute(KeyboardRoute.ToolbarCustomize) },
+                onFloatingModeToggle = { callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode); viewModel.setRoute(KeyboardRoute.Keyboard) },
+                isFloatingMode = state.isFloatingMode,
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
                 is KeyboardRoute.Clipboard -> ClipboardView(
@@ -526,5 +546,6 @@ fun KeyboardView(
             }
         }
         }
+    }
     }
 }

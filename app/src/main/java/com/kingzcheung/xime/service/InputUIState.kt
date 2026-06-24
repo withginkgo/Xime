@@ -30,5 +30,8 @@ data class InputUIState(
     val deploymentMessage: String = "",
     val inputSessionId: Long = 0,
     val toolbarButtons: List<String> = ToolbarButton.DEFAULT_VISIBLE.map { it.id },
-    val isCompact: Boolean = false
+    val isCompact: Boolean = false,
+    val isFloatingMode: Boolean = false,
+    val floatingOffsetX: Int = 0,
+    val floatingOffsetY: Int = 0,
 )

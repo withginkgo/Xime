@@ -30,4 +30,7 @@ data class KeyboardCallbacks(
     val onUpdateToolbarButtons: ((List<String>) -> Unit)? = null,
     val onKeyboardModeChange: ((Boolean) -> Unit)? = null,
     val onDismissDeploying: (() -> Unit)? = null,
+    val onFloatingModeChange: ((Boolean) -> Unit)? = null,
+    val onFloatingKeyboardDrag: ((dx: Float, dy: Float) -> Unit)? = null,
+    val onFloatingKeyboardDragEnd: (() -> Unit)? = null,
 )

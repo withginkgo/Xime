@@ -84,6 +84,7 @@ import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.keyboard.KeyboardView
 import com.kingzcheung.xime.ui.theme.KeyboardThemes
+import kotlin.math.roundToInt
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.ui.theme.XimeTheme
 import com.kingzcheung.xime.util.FileLogger
@@ -168,6 +169,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     private var pendingVoiceAction: (() -> Unit)? = null
     private var lastClearedText: String = ""
     private var isChineseMode = true
+    private var currentEffectiveKeyboardHeight: Int = 0
     
     private val calculatorEngine = com.kingzcheung.xime.calculator.CalculatorEngine()
 
@@ -220,13 +222,36 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
     
     private fun loadDarkModePreference() {
         val isLandscape = resources.configuration.screenWidthDp > resources.configuration.screenHeightDp
+        val isFloatingMode = SettingsPreferences.isFloatingMode(this, isLandscape)
+        SettingsPreferences.setFloatingMode(this, isFloatingMode, !isLandscape)
+        val loadedX = SettingsPreferences.getFloatingOffsetX(this, isLandscape)
+        val loadedY = SettingsPreferences.getFloatingOffsetY(this, isLandscape)
+        SettingsPreferences.setFloatingOffsetX(this, loadedX, !isLandscape)
+        SettingsPreferences.setFloatingOffsetY(this, loadedY, !isLandscape)
+        val screenW = resources.configuration.screenWidthDp
+        val screenH = resources.configuration.screenHeightDp
+        val portraitWidth = minOf(screenW, screenH)
+        val cardWidth = (portraitWidth * 0.85f).roundToInt()
+        val halfMargin = maxOf(0, (screenW - cardWidth) / 2)
+        val kbH = SettingsPreferences.getKeyboardHeightDp(this, isLandscape)
+        val cardH = (kbH * 0.85f).roundToInt() + 18
+        val maxY = maxOf(0, screenH - cardH - 20)
+        val clampedX = loadedX.coerceIn(-halfMargin, halfMargin)
+        val clampedY = loadedY.coerceIn(0, maxY)
+        if (clampedX != loadedX || clampedY != loadedY) {
+            SettingsPreferences.setFloatingOffsetX(this, clampedX, isLandscape)
+            SettingsPreferences.setFloatingOffsetY(this, clampedY, isLandscape)
+        }
         uiState.value = uiState.value.copy(
             darkMode = SettingsPreferences.getDarkMode(this),
             themeId = SettingsPreferences.getKeyboardTheme(this),
             isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService),
             keyboardHeightDp = SettingsPreferences.getKeyboardHeightDp(this, isLandscape),
             keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this),
-            toolbarButtons = SettingsPreferences.getToolbarButtons(this)
+            toolbarButtons = SettingsPreferences.getToolbarButtons(this),
+            isFloatingMode = isFloatingMode,
+            floatingOffsetX = clampedX,
+            floatingOffsetY = clampedY,
         )
     }
     
@@ -237,6 +262,11 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 "dark_mode", "keyboard_theme", "show_bottom_buttons", "keyboard_height_dp", "keyboard_bottom_padding_dp" -> {
                     loadDarkModePreference()
                     Log.d(TAG, "Settings changed: $key, updated UI state")
+                }
+                "floating_mode", "floating_mode_landscape" -> {
+                    loadDarkModePreference()
+                    applyFloatingWindowBackground()
+                    Log.d(TAG, "Floating mode changed: $key")
                 }
                 "stt_enabled" -> {
                     uiState.value = uiState.value.copy(isSttEnabled = SettingsPreferences.isSttEnabled(this@XimeInputMethodService))
@@ -544,7 +574,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 val state = uiState.value
                 val isDarkTheme = isDarkTheme()
                 val screenHeightDp = resources.configuration.screenHeightDp
-                val isLandscape = resources.configuration.screenWidthDp > screenHeightDp
+                val isLandscape = !state.isFloatingMode && resources.configuration.screenWidthDp > screenHeightDp
                 val orientationHeight = SettingsPreferences.getKeyboardHeightDp(this@XimeInputMethodService, isLandscape)
                 val displayHeight = orientationHeight.coerceAtMost((screenHeightDp * 8) / 10)
                 val keyboardHeight = if (state.showKeyboardResize) {
@@ -552,7 +582,11 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                 } else {
                     displayHeight
                 }
-                Log.d(TAG, "ComposeHeight: showResize=${state.showKeyboardResize} orientHeight=$orientationHeight displayHeight=$displayHeight keyboardHeight=$keyboardHeight")
+                val floatScale = if (state.isFloatingMode) 0.85f else 1f
+                val effectiveKeyboardHeight = (keyboardHeight * floatScale).toInt()
+                val floatingDragBarHeight = if (state.isFloatingMode) 18 else 0
+                val floatingCardContentHeight = effectiveKeyboardHeight + floatingDragBarHeight
+                Log.d(TAG, "ComposeHeight: showResize=${state.showKeyboardResize} orientHeight=$orientationHeight displayHeight=$displayHeight keyboardHeight=$keyboardHeight floatScale=$floatScale effectiveHeight=$effectiveKeyboardHeight isFloatingMode=${state.isFloatingMode} isLandscape=$isLandscape")
                 
                 // 一次性计算导航栏高度，供后续布局复用
                 val density = LocalDensity.current
@@ -581,16 +615,19 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             .height(
                                 if (state.isCompact) {
                                     if (cand.isComposing) 110.dp else 1.dp
-                                } else if (state.showKeyboardResize) ((screenHeightDp * 7) / 10 + 100).dp
+                                } else if (state.isFloatingMode) screenHeightDp.dp
+                                else if (state.showKeyboardResize) ((screenHeightDp * 7) / 10 + 100).dp
                                 else (keyboardHeight + state.keyboardBottomPaddingDp).dp + (if (hasNavBar) navBarDp else 0.dp)
                             )
                     ) {
                         // Sync FrameLayout height with Compose content height
-                        val contentHeight = if (state.showKeyboardResize) state.resizePreviewHeightDp else keyboardHeight
-                        val totalDp = contentHeight + state.keyboardBottomPaddingDp + actualNavBarDp
+                        val contentHeight = if (state.showKeyboardResize) state.resizePreviewHeightDp else floatingCardContentHeight
+                        val totalDp = if (state.isFloatingMode) screenHeightDp
+                            else contentHeight + state.keyboardBottomPaddingDp + actualNavBarDp
                         Log.d(TAG, "HeightSync: mode=${if (state.showKeyboardResize) "resize" else "normal"} height=$contentHeight navBarDp=${navBarDp.value} padding=${state.keyboardBottomPaddingDp} hasNavBar=$hasNavBar totalDp=$totalDp")
                         SideEffect {
                             keyboardContainer.updateHeight(totalDp)
+                            currentEffectiveKeyboardHeight = if (state.isFloatingMode) floatingCardContentHeight + 48 else effectiveKeyboardHeight
                         }
                         if (state.isCompact && cand.isComposing) {
                             FloatingCandidateBar(
@@ -610,12 +647,12 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                             modifier = Modifier
                                 .align(androidx.compose.ui.Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .background(keyboardBgColor)
+                                .then(if (!state.isFloatingMode) Modifier.background(keyboardBgColor) else Modifier)
                         ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(if (state.showKeyboardResize) (state.resizePreviewHeightDp + state.keyboardBottomPaddingDp).dp else (keyboardHeight + state.keyboardBottomPaddingDp).dp)
+                                .height(if (state.showKeyboardResize) (state.resizePreviewHeightDp + state.keyboardBottomPaddingDp).dp else (floatingCardContentHeight + state.keyboardBottomPaddingDp).dp)
                         ) {
                         CompositionLocalProvider(LocalStretchFactor provides state.stretchFactor) {
                             val kbState = KeyboardUiState(
@@ -639,7 +676,7 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 isDarkTheme = isDarkTheme,
                                 darkMode = state.darkMode,
                                 themeId = state.themeId,
-                                keyboardHeightDp = keyboardHeight,
+                                keyboardHeightDp = effectiveKeyboardHeight,
                                 keyboardBottomPaddingDp = state.keyboardBottomPaddingDp,
                                 clipboardItems = clipboardItemsState.value,
                                 quickSendItems = quickSendItemsState.value,
@@ -657,6 +694,9 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                 isCalculatorMode = calculatorEngine.isActive(),
                                 inputSessionId = state.inputSessionId,
                                 isShowingRecentClipboard = cand.isShowingRecentClipboard,
+                                isFloatingMode = state.isFloatingMode,
+                                floatingOffsetX = state.floatingOffsetX,
+                                floatingOffsetY = state.floatingOffsetY,
                             )
                             val callbacks = remember {
                                 KeyboardCallbacks(
@@ -792,6 +832,26 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
                                         }
                                     },
                                     onDismissDeploying = { notifyDeploymentStatus(false, "") },
+                                    onFloatingModeChange = { enabled -> toggleFloatingMode(enabled) },
+                                    onFloatingKeyboardDrag = { dx, dy ->
+                                        val s = uiState.value
+                                        val screenW = resources.configuration.screenWidthDp
+                                        val screenH = resources.configuration.screenHeightDp
+                                        val portraitWidth = minOf(screenW, screenH)
+                                        val cardWidth = (portraitWidth * 0.85f).roundToInt()
+                                        val halfMargin = ((screenW - cardWidth) / 2f).roundToInt()
+                                        val maxY = (screenH * 0.9f).roundToInt()
+                                        uiState.value = s.copy(
+                                            floatingOffsetX = (s.floatingOffsetX + dx).roundToInt().coerceIn(-halfMargin, halfMargin),
+                                            floatingOffsetY = (s.floatingOffsetY + dy).roundToInt().coerceIn(0, maxY),
+                                        )
+                                    },
+                                    onFloatingKeyboardDragEnd = {
+                                        val s = uiState.value
+                                        val isLandscape = resources.configuration.screenWidthDp > resources.configuration.screenHeightDp
+                                        SettingsPreferences.setFloatingOffsetX(this@XimeInputMethodService, s.floatingOffsetX, isLandscape)
+                                        SettingsPreferences.setFloatingOffsetY(this@XimeInputMethodService, s.floatingOffsetY, isLandscape)
+                                    },
                                 )
                             }
                             KeyboardView(
@@ -1072,6 +1132,25 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         hasHardwareKeyboard = newConfig.keyboard != android.content.res.Configuration.KEYBOARD_NOKEYS
         super.onConfigurationChanged(newConfig)
         applyCompactMode()
+        loadDarkModePreference()
+        applyFloatingWindowBackground()
+    }
+
+    private fun applyFloatingWindowBackground() {
+        val enabled = uiState.value.isFloatingMode
+        try {
+            window.window?.let { win ->
+                if (enabled) {
+                    win.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                    win.setDimAmount(0f)
+                } else {
+                    win.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE))
+                    win.setDimAmount(0.2f)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "applyFloatingWindowBackground failed", e)
+        }
     }
 
     private fun applyCompactMode() {
@@ -2090,6 +2169,55 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         SettingsPreferences.setKeyboardHeightDp(this, heightDp, isLandscape)
         uiState.value = uiState.value.copy(keyboardHeightDp = heightDp)
         Toast.makeText(this, "键盘高度已调整", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun toggleFloatingMode(enabled: Boolean) {
+        Log.d(TAG, "toggleFloatingMode: $enabled")
+        val isLandscape = resources.configuration.screenWidthDp > resources.configuration.screenHeightDp
+        SettingsPreferences.setFloatingMode(this, enabled, isLandscape)
+        SettingsPreferences.setFloatingMode(this, enabled, !isLandscape)
+        uiState.value = uiState.value.copy(
+            isFloatingMode = enabled,
+            floatingOffsetX = SettingsPreferences.getFloatingOffsetX(this, isLandscape),
+            floatingOffsetY = SettingsPreferences.getFloatingOffsetY(this, isLandscape),
+        )
+        window.window?.let { win ->
+            if (enabled) {
+                win.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+                win.setDimAmount(0f)
+            } else {
+                win.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE))
+                win.setDimAmount(0.2f)
+            }
+        }
+    }
+
+    override fun onComputeInsets(outInsets: Insets) {
+        val state = uiState.value
+        if (state.isFloatingMode) {
+            outInsets.apply {
+                contentTopInsets = resources.displayMetrics.heightPixels
+                visibleTopInsets = resources.displayMetrics.heightPixels
+                touchableInsets = Insets.TOUCHABLE_INSETS_REGION
+                val decor = window.window?.decorView ?: return
+                val loc = IntArray(2)
+                decor.getLocationOnScreen(loc)
+                val density = resources.displayMetrics.density
+                val cardWidthPx = (decor.width * 0.85f).toInt()
+                val leftPaddingPx = ((decor.width - cardWidthPx) / 2f).toInt()
+                val offsetXPx = (state.floatingOffsetX * density).toInt()
+                val cardHeightPx = (currentEffectiveKeyboardHeight * density).toInt()
+                val offsetYPx = (state.floatingOffsetY * density).toInt()
+                touchableRegion.set(
+                    loc[0] + leftPaddingPx + offsetXPx,
+                    loc[1] + decor.height - cardHeightPx - offsetYPx,
+                    loc[0] + leftPaddingPx + offsetXPx + cardWidthPx,
+                    loc[1] + decor.height - offsetYPx
+                )
+            }
+        } else {
+            super.onComputeInsets(outInsets)
+        }
     }
 
     override fun commitText(text: String) {
