@@ -224,8 +224,24 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
         val isLandscape = resources.configuration.screenWidthDp > resources.configuration.screenHeightDp
         val isFloatingMode = SettingsPreferences.isFloatingMode(this, isLandscape)
         SettingsPreferences.setFloatingMode(this, isFloatingMode, !isLandscape)
-        SettingsPreferences.setFloatingOffsetX(this, SettingsPreferences.getFloatingOffsetX(this, isLandscape), !isLandscape)
-        SettingsPreferences.setFloatingOffsetY(this, SettingsPreferences.getFloatingOffsetY(this, isLandscape), !isLandscape)
+        val loadedX = SettingsPreferences.getFloatingOffsetX(this, isLandscape)
+        val loadedY = SettingsPreferences.getFloatingOffsetY(this, isLandscape)
+        SettingsPreferences.setFloatingOffsetX(this, loadedX, !isLandscape)
+        SettingsPreferences.setFloatingOffsetY(this, loadedY, !isLandscape)
+        val screenW = resources.configuration.screenWidthDp
+        val screenH = resources.configuration.screenHeightDp
+        val portraitWidth = minOf(screenW, screenH)
+        val cardWidth = (portraitWidth * 0.85f).roundToInt()
+        val halfMargin = maxOf(0, (screenW - cardWidth) / 2)
+        val kbH = SettingsPreferences.getKeyboardHeightDp(this, isLandscape)
+        val cardH = (kbH * 0.85f).roundToInt() + 18
+        val maxY = maxOf(0, screenH - cardH - 20)
+        val clampedX = loadedX.coerceIn(-halfMargin, halfMargin)
+        val clampedY = loadedY.coerceIn(0, maxY)
+        if (clampedX != loadedX || clampedY != loadedY) {
+            SettingsPreferences.setFloatingOffsetX(this, clampedX, isLandscape)
+            SettingsPreferences.setFloatingOffsetY(this, clampedY, isLandscape)
+        }
         uiState.value = uiState.value.copy(
             darkMode = SettingsPreferences.getDarkMode(this),
             themeId = SettingsPreferences.getKeyboardTheme(this),
@@ -234,8 +250,8 @@ class XimeInputMethodService : InputMethodService(), LifecycleOwner, SavedStateR
             keyboardBottomPaddingDp = SettingsPreferences.getKeyboardBottomPaddingDp(this),
             toolbarButtons = SettingsPreferences.getToolbarButtons(this),
             isFloatingMode = isFloatingMode,
-            floatingOffsetX = SettingsPreferences.getFloatingOffsetX(this, isLandscape),
-            floatingOffsetY = SettingsPreferences.getFloatingOffsetY(this, isLandscape),
+            floatingOffsetX = clampedX,
+            floatingOffsetY = clampedY,
         )
     }
     
