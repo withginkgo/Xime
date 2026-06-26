@@ -6,21 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -36,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,7 +49,6 @@ fun KeyboardView(
     viewModel: KeyboardViewModel,
     state: KeyboardUiState,
     callbacks: KeyboardCallbacks,
-    floatingCardWidthDp: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val isShifted by viewModel.isShifted.collectAsStateWithLifecycle()
@@ -78,8 +67,24 @@ fun KeyboardView(
     }
 
     LaunchedEffect(state.isAsciiMode, state.currentSchemaId) {
+        if (keyboardState is KeyboardLayoutState.Number) return@LaunchedEffect
         val newState = initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId)
         viewModel.setKeyboardState(newState)
+    }
+
+    var savedNumberAsciiMode by remember { mutableStateOf<Boolean?>(null) }
+
+    LaunchedEffect(keyboardState) {
+        if (keyboardState is KeyboardLayoutState.Number) {
+            if (savedNumberAsciiMode == null) {
+                savedNumberAsciiMode = state.isAsciiMode
+                if (!state.isAsciiMode) {
+                    callbacks.onKeyPress("ime_switch", false)
+                }
+            }
+        } else {
+            savedNumberAsciiMode = null
+        }
     }
 
     val kbColors = KeysConfigHelper.getKeyboardColors()
@@ -293,19 +298,33 @@ fun KeyboardView(
                     }
                     val numberOnKeyPress: (String) -> Unit = { key ->
                         when (key) {
-                            "abc" -> viewModel.setKeyboardState(
-                                initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId)
-                            )
-                            "symbol" -> viewModel.setRoute(KeyboardRoute.Symbol)
-                            "emoji" -> viewModel.setRoute(KeyboardRoute.Emoji)
-                            else -> {
-                                if (key.length == 1 && key[0] !in "0123456789+-*/.=") {
-                                    callbacks.onCommitText?.invoke(key)
-                                        ?: callbacks.onKeyPress(key, false)
-                                } else {
-                                    callbacks.onKeyPress(key, false)
+                            "abc" -> {
+                                val saved = savedNumberAsciiMode
+                                savedNumberAsciiMode = null
+                                if (saved != null && saved != state.isAsciiMode) {
+                                    callbacks.onKeyPress("ime_switch", false)
                                 }
+                                viewModel.setKeyboardState(
+                                    initialKeyboardLayoutState(saved ?: state.isAsciiMode, state.currentSchemaId)
+                                )
                             }
+                            "symbol" -> {
+                                val saved = savedNumberAsciiMode
+                                savedNumberAsciiMode = null
+                                if (saved != null && saved != state.isAsciiMode) {
+                                    callbacks.onKeyPress("ime_switch", false)
+                                }
+                                viewModel.setRoute(KeyboardRoute.Symbol)
+                            }
+                            "emoji" -> {
+                                val saved = savedNumberAsciiMode
+                                savedNumberAsciiMode = null
+                                if (saved != null && saved != state.isAsciiMode) {
+                                    callbacks.onKeyPress("ime_switch", false)
+                                }
+                                viewModel.setRoute(KeyboardRoute.Emoji)
+                            }
+                            else -> callbacks.onKeyPress(key, false)
                         }
                     }
                     val symbolOnKeyPress: (String) -> Unit = { key ->
@@ -427,23 +446,26 @@ fun KeyboardView(
             ) {
             when (currentRoute) {
                 is KeyboardRoute.Menu -> MenuBar(
-                isVisible = true,
-                isDarkTheme = state.isDarkTheme,
-                darkMode = state.darkMode,
-                backgroundColor = keyboardBgColor,
-                bottomPaddingDp = state.keyboardBottomPaddingDp,
-                onDismiss = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                onClipboard = { viewModel.setRoute(KeyboardRoute.Clipboard(0)); callbacks.onClipboard?.invoke() },
-                onQuickSend = { viewModel.setRoute(KeyboardRoute.Clipboard(1)); callbacks.onQuickSend?.invoke() },
-                onKeyboardResize = { callbacks.onKeyboardResize?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                onEmoji = { viewModel.setRoute(KeyboardRoute.Emoji) },
-                onReloadConfig = { callbacks.onReloadConfig?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                onSettings = { callbacks.onSettings?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                onSchemaList = { viewModel.setRoute(KeyboardRoute.SchemaList) },
-                onToggleDarkMode = { callbacks.onToggleDarkMode?.invoke() },
-                onToolbarCustomize = { viewModel.setRoute(KeyboardRoute.ToolbarCustomize) },
-                onFloatingModeToggle = { callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode); viewModel.setRoute(KeyboardRoute.Keyboard) },
-                isFloatingMode = state.isFloatingMode,
+                    state = MenuBarState(
+                        isVisible = true,
+                        isDarkTheme = state.isDarkTheme,
+                        darkMode = state.darkMode,
+                        backgroundColor = keyboardBgColor,
+                        isFloatingMode = state.isFloatingMode,
+                    ),
+                    callbacks = MenuBarCallbacks(
+                        onDismiss = { viewModel.setRoute(KeyboardRoute.Keyboard) },
+                        onClipboard = { viewModel.setRoute(KeyboardRoute.Clipboard(0)); callbacks.onClipboard?.invoke() },
+                        onQuickSend = { viewModel.setRoute(KeyboardRoute.Clipboard(1)); callbacks.onQuickSend?.invoke() },
+                        onKeyboardResize = { callbacks.onKeyboardResize?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
+                        onEmoji = { viewModel.setRoute(KeyboardRoute.Emoji) },
+                        onReloadConfig = { callbacks.onReloadConfig?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
+                        onSettings = { callbacks.onSettings?.invoke(); viewModel.setRoute(KeyboardRoute.Keyboard) },
+                        onSchemaList = { viewModel.setRoute(KeyboardRoute.SchemaList) },
+                        onToggleDarkMode = { callbacks.onToggleDarkMode?.invoke() },
+                        onToolbarCustomize = { viewModel.setRoute(KeyboardRoute.ToolbarCustomize) },
+                        onFloatingModeToggle = { callbacks.onFloatingModeChange?.invoke(!state.isFloatingMode); viewModel.setRoute(KeyboardRoute.Keyboard) },
+                    ),
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
                 is KeyboardRoute.Clipboard -> ClipboardView(
@@ -479,7 +501,6 @@ fun KeyboardView(
                 is KeyboardRoute.ToolbarCustomize -> ToolbarCustomizeView(
                     toolbarButtons = state.toolbarButtons,
                     keyTextColor = keyTextColor,
-                    keyBgColor = keyBgColor,
                     backgroundColor = keyboardBgColor,
                     accentColor = accentColor,
                     onUpdateToolbarButtons = callbacks.onUpdateToolbarButtons,
@@ -488,26 +509,29 @@ fun KeyboardView(
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
                 is KeyboardRoute.CandidatePage -> CandidatePage(
-                    candidates = state.candidates.toList(),
-                    candidateComments = state.candidateComments.toList(),
-                    associationCandidates = state.associationCandidates.toList(),
-                    inputText = state.inputText,
-                    onCandidateSelect = { index ->
-                        callbacks.onCandidateSelect(index)
-                        viewModel.setRoute(KeyboardRoute.Keyboard)
-                    },
-                    onAssociationSelect = { index ->
-                        callbacks.onAssociationSelect?.invoke(index)
-                        viewModel.setRoute(KeyboardRoute.Keyboard)
-                    },
-                    backgroundColor = candidateBarBg,
-                    textColor = candidateTextColor,
-                    hasNextPage = state.hasNextPage,
-                    hasPrevPage = state.hasPrevPage,
-                    onPageDown = callbacks.onPageDown,
-                    onPageUp = callbacks.onPageUp,
-                    onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
-                    bottomPaddingDp = state.keyboardBottomPaddingDp,
+                    state = CandidatePageState(
+                        candidates = state.candidates.toList(),
+                        candidateComments = state.candidateComments.toList(),
+                        associationCandidates = state.associationCandidates.toList(),
+                        backgroundColor = candidateBarBg,
+                        textColor = candidateTextColor,
+                        hasNextPage = state.hasNextPage,
+                        hasPrevPage = state.hasPrevPage,
+                        bottomPaddingDp = state.keyboardBottomPaddingDp,
+                    ),
+                    callbacks = CandidatePageCallbacks(
+                        onCandidateSelect = { index ->
+                            callbacks.onCandidateSelect(index)
+                            viewModel.setRoute(KeyboardRoute.Keyboard)
+                        },
+                        onAssociationSelect = { index ->
+                            callbacks.onAssociationSelect?.invoke(index)
+                            viewModel.setRoute(KeyboardRoute.Keyboard)
+                        },
+                        onPageDown = callbacks.onPageDown,
+                        onPageUp = callbacks.onPageUp,
+                        onBack = { viewModel.setRoute(KeyboardRoute.Keyboard) },
+                    ),
                     modifier = Modifier.fillMaxWidth().fillMaxHeight()
                 )
                 is KeyboardRoute.SplitWords -> SplitWordsView(
