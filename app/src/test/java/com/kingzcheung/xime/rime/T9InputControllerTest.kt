@@ -867,6 +867,47 @@ class T9InputControllerTest {
         )
     }
 
+    // ── 场景 4.1：简拼+全拼混合输入后右侧选"客户"应完整消费输入 ──
+
+    @Test
+    fun `scenario 4_1 - right candidate kehu consumes the whole k'ge buffer`() {
+        val ctrl = createController()
+
+        // 模拟场景4步骤1-3后控制器状态：左侧已选 k 和 ge，buffer 为 k'ge
+        ctrl.inputBuffer = "k'ge"
+        ctrl.updateCandidates(force = true)
+        assertEquals("k'ge", ctrl.inputBuffer)
+        assertTrue(ctrl.firstOptions.isEmpty())
+
+        // 右侧候选"客户"的拼音注释为 kehu，应完整消费 k'ge
+        ctrl.onRightCandidateSelected("kehu")
+        assertEquals("", ctrl.inputBuffer)
+        assertTrue(ctrl.firstOptions.isEmpty())
+    }
+
+    // ── 场景 6.1：半提交后按"换行"键提交预编辑文本，再次输入不应残留 partial commit ──
+
+    @Test
+    fun `scenario 6_1 - enter after partial commit clears controller state and sends CLEAR_ALL`() {
+        val rimeCalls = mutableListOf<String>()
+        val ctrl = T9InputController(onReplaceFullPinyin = { rimeCalls.add(it) })
+
+        // 1. 输入 23744 → 右侧选"策"，模拟 partial commit 后 controller 状态
+        for (d in listOf("2", "3", "7", "4", "4")) ctrl.onDigitPressed(d)
+        ctrl.onRightCandidateSelected("ce")
+        assertEquals("744", ctrl.inputBuffer)
+        assertTrue(ctrl.firstOptions.isNotEmpty())
+
+        // 2. 用户按"换行"键，controller 应收到 enter 通知并彻底清空
+        ctrl.onEnterCommit()
+        assertEquals("", ctrl.inputBuffer)
+        assertTrue(ctrl.firstOptions.isEmpty())
+        assertTrue(
+            "Enter commit should notify service to clear all T9 state",
+            rimeCalls.contains(T9InputController.CLEAR_ALL)
+        )
+    }
+
     // ── 场景 8：多个 RightCommit 连续撤销时 partial commit 顺序 ──
 
     @Test
@@ -877,12 +918,12 @@ class T9InputControllerTest {
             onRightCommitUndone = { undoCount += it }
         )
 
-        // 输入 946946423744（分词后等价于 jin xing ce shi）
-        for (d in listOf("9", "4", "6", "9", "4", "6", "4", "2", "3", "7", "4", "4")) {
+        // 输入 546946423744（分词后等价于 jin xing ce shi）
+        for (d in listOf("5", "4", "6", "9", "4", "6", "4", "2", "3", "7", "4", "4")) {
             ctrl.onDigitPressed(d)
         }
 
-        // 右侧选"进行"：消费 "9469464"，剩余 "23744"
+        // 右侧选"进行"：消费 "5469464"，剩余 "23744"
         ctrl.onRightCandidateSelected("jin xing")
         assertEquals("23744", ctrl.inputBuffer)
 
@@ -927,9 +968,9 @@ class T9InputControllerTest {
         assertEquals(T9InputController.DeleteResult.DELETED, ctrl.delete()) // 2 → ""
         assertEquals("", ctrl.inputBuffer)
 
-        // 撤销"进行"：当前数字段已空，只恢复 consumedDigits="9469464"，再次触发 onRightCommitUndone
+        // 撤销"进行"：当前数字段已空，只恢复 consumedDigits="5469464"，再次触发 onRightCommitUndone
         assertEquals(T9InputController.DeleteResult.UNDO_COMMIT, ctrl.delete())
-        assertEquals("9469464", ctrl.inputBuffer)
+        assertEquals("5469464", ctrl.inputBuffer)
         ctrl.clearRimeAndResend()
         assertEquals(2, undoCount)
     }

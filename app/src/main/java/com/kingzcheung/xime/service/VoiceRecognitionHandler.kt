@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.inputmethod.InputConnection
+import com.kingzcheung.xime.model.ModelRuntime
 import com.kingzcheung.xime.speech.RecognitionState
 import com.kingzcheung.xime.speech.SpeechRecognitionManager
 import com.kingzcheung.xime.speech.punctuation.PunctuationInference
@@ -17,7 +18,8 @@ class VoiceRecognitionHandler(
     private val context: Context,
     private val onStateChanged: (InputUIState) -> Unit,
     private val getState: () -> InputUIState,
-    private val getInputConnection: () -> InputConnection?
+    private val getInputConnection: () -> InputConnection?,
+    private val onVoiceComplete: () -> Unit = {}
 ) {
     companion object {
         private const val TAG = "VoiceRecognition"
@@ -92,6 +94,7 @@ class VoiceRecognitionHandler(
         val modelFile = punctuationManager.getModelFile()
         val vocabFile = punctuationManager.getVocabFile()
         if (PunctuationInference.initialize(context, modelFile.absolutePath, vocabFile.absolutePath)) {
+            ModelRuntime.keepWarm("punctuation")
             punctuationInitialized = true
             FileLogger.i(TAG, "Punctuation model initialized successfully")
         } else {
@@ -159,6 +162,7 @@ class VoiceRecognitionHandler(
             speechRecognitionManager.release()
         }
         if (punctuationInitialized) {
+            ModelRuntime.releaseWarm("punctuation")
             PunctuationInference.release()
             punctuationInitialized = false
         }
@@ -180,8 +184,8 @@ class VoiceRecognitionHandler(
                 val punctuatedText = addPunctuation(cleanText)
                 ic.commitText(punctuatedText, 1)
             }
-            onStateChanged(getState().copy(voiceRecognizedText = ""))
         }
+        onVoiceComplete()
     }
     
     private fun addPunctuation(text: String): String {
@@ -245,13 +249,7 @@ class VoiceRecognitionHandler(
         Log.e(TAG, "Speech error: $error")
         FileLogger.e(TAG, "Speech error: $error")
         lastPartialText = ""
-        onStateChanged(getState().copy(
-            isVoiceMode = false,
-            voiceButtonState = VoiceButtonState(),
-            voiceRecognitionState = RecognitionState.ERROR,
-            voiceRecognizedText = "",
-            voiceAmplitude = 0f
-        ))
+        onVoiceComplete()
     }
 
     private fun handleAmplitudeUpdate(amplitude: Float) {

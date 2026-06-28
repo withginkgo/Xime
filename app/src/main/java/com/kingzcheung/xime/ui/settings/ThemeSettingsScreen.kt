@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.BlurOn
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,8 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kingzcheung.xime.ui.KeyboardThemeCard
-import com.kingzcheung.xime.ui.ThemeCard
 import com.kingzcheung.xime.viewmodel.ThemeSettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +42,7 @@ fun ThemeSettingsContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
         TopAppBar(
@@ -168,6 +169,26 @@ fun ThemeSettingsContent(
                 }
             }
             
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "玻璃效果",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            item {
+                SettingsToggleItem(
+                    icon = Icons.Filled.BlurOn,
+                    title = "琉璃质感",
+                    subtitle = "键盘背景叠加高光与折射渐变，模拟半透玻璃效果",
+                    checked = uiState.isGlassEffectEnabled,
+                    onCheckedChange = { viewModel.setGlassEffectEnabled(it) }
+                )
+            }
+
             item {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(

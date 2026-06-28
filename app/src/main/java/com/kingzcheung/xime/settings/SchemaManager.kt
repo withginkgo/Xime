@@ -3,6 +3,13 @@ package com.kingzcheung.xime.settings
 import android.content.Context
 import android.net.Uri
 import android.util.Log
+import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlConfiguration
+import com.charleskorn.kaml.YamlList
+import com.charleskorn.kaml.YamlMap
+import com.charleskorn.kaml.YamlScalar
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -28,9 +35,21 @@ data class SchemaMeta(
     val description: String = ""
 )
 
+@Serializable
+internal data class SchemaYaml(val schema: SchemaEntry)
+
+@Serializable
+internal data class SchemaEntry(
+    @SerialName("schema_id") val schemaId: String = "",
+    val name: String = "",
+    val version: String = "",
+    val description: String? = null,
+)
+
 object SchemaManager {
     private const val TAG = "SchemaManager"
     private const val CUSTOM_YAML = "default.custom.yaml"
+    internal val yaml = Yaml(configuration = YamlConfiguration(strictMode = false))
 
     fun getRimeDir(context: Context): File =
         File(context.filesDir, "rime")
@@ -265,81 +284,61 @@ object SchemaManager {
         return schemas
     }
 
-    private fun parseSchemaYaml(file: File): SchemaMeta? {
-        try {
-            val lines = file.readLines()
-            var schemaId = ""
-            var name = ""
-            var version = ""
-            var author = ""
-            var description = ""
-            var inSchemaBlock = false
-            var inAuthorBlock = false
-            var inDescription = false
-            val descriptionLines = mutableListOf<String>()
+    internal fun parseSchemaYaml(file: File): SchemaMeta? {
+        return try {
+            val text = file.readText().trimStart('\uFEFF')
+            val entry = yaml.decodeFromString(SchemaYaml.serializer(), text).schema
+            if (entry.schemaId.isEmpty()) return null
 
-            for (line in lines) {
-                val trimmed = line.trimStart()
+            // author 可为标量或列表，从原始 YAML 节点手动提取
+            val author = parseAuthorFromText(text)
 
-                if (trimmed == "schema:") {
-                    inSchemaBlock = true
-                    inAuthorBlock = false
-                    inDescription = false
-                    continue
-                }
-
-                if (!inSchemaBlock && !trimmed.startsWith("schema:")) continue
-
-                if (trimmed.startsWith("schema_id:")) {
-                    schemaId = trimmed.removePrefix("schema_id:").trim().removeSurrounding("\"")
-                } else if (trimmed.startsWith("name:")) {
-                    name = trimmed.removePrefix("name:").trim().removeSurrounding("\"")
-                } else if (trimmed.startsWith("version:")) {
-                    version = trimmed.removePrefix("version:").trim().removeSurrounding("\"")
-                } else if (trimmed.startsWith("author:")) {
-                    inAuthorBlock = true
-                    inDescription = false
-                    val rest = trimmed.removePrefix("author:").trim()
-                    if (rest.isNotEmpty()) {
-                        author = rest.removeSurrounding("\"").removePrefix("- ").trim()
-                    }
-                } else if (trimmed.startsWith("description:")) {
-                    inAuthorBlock = false
-                    inDescription = true
-                    val rest = trimmed.removePrefix("description:").trim()
-                    if (rest.isNotEmpty() && rest != "|") {
-                        description = rest.removeSurrounding("\"")
-                    }
-                } else if (inAuthorBlock && trimmed.startsWith("- ")) {
-                    if (author.isEmpty()) {
-                        author = trimmed.removePrefix("- ").trim().removeSurrounding("\"")
-                    }
-                } else if (inDescription && trimmed.isNotEmpty()) {
-                    descriptionLines.add(trimmed)
-                } else {
-                    if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
-                        inAuthorBlock = false
-                        inDescription = false
-                    }
-                }
-            }
-
-            if (schemaId.isNotEmpty()) {
-                if (descriptionLines.isNotEmpty()) {
-                    description = descriptionLines.joinToString(" ").trim()
-                }
-                return SchemaMeta(
-                    schemaId = schemaId,
-                    name = name.ifEmpty { schemaId },
-                    version = version,
-                    author = author,
-                    description = description
-                )
-            }
-            return null
+            SchemaMeta(
+                schemaId = entry.schemaId,
+                name = entry.name.ifEmpty { entry.schemaId },
+                version = entry.version,
+                author = author,
+                description = entry.description ?: ""
+            )
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse schema file: ${file.name}", e)
-            return null
+            try { Log.w(TAG, "Failed to parse schema file: ${file.name}, skip") } catch (_: Exception) {}
+            null
+        }
+    }
+
+    private fun parseAuthorFromText(yamlText: String): String {
+        val lines = yamlText.lines()
+        var inAuthor = false
+        for (line in lines) {
+            val trimmed = line.trimStart()
+            if (!inAuthor && trimmed.startsWith("author:")) {
+                val rest = trimmed.removePrefix("author:").trim()
+                if (rest.isNotEmpty()) return rest.removeSurrounding("\"").removePrefix("- ").trim()
+                inAuthor = true
+                continue
+            }
+            if (inAuthor) {
+                if (trimmed.startsWith("- ")) {
+                    return trimmed.removePrefix("- ").trim().removeSurrounding("\"")
+                }
+                if (trimmed.isNotEmpty() && !trimmed.startsWith("#")) {
+                    inAuthor = false
+                }
+            }
+        }
+        return ""
+    }
+
+    /** 仅从 .schema.yaml 读取显示名，不依赖编译/启用状态。 */
+    fun getSchemaDisplayName(context: Context, schemaId: String): String? {
+        val file = File(getRimeDir(context), "$schemaId.schema.yaml")
+        if (!file.exists()) return null
+        return try {
+            val entry = yaml.decodeFromString(SchemaYaml.serializer(), file.readText().trimStart('\uFEFF')).schema
+            entry.name.ifEmpty { null }
+        } catch (e: Exception) {
+            try { Log.e(TAG, "Failed to parse schema name for $schemaId", e) } catch (_: Exception) {}
+            null
         }
     }
 

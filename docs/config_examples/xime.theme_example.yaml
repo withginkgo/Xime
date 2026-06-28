@@ -1,9 +1,10 @@
-style:
-  font_size: 14
-  candidate_count: 5
-  show_code_hint: true
-  horizontal: true
-  color_scheme: zine_medium
+metadata:
+  app_name: Xime
+  app_version: ">=2.4.2"
+  platform: android
+  config_version: 1
+  generator: "Xime Config Generator" # 暂时无用
+  modified_time: "2026-06-18"
 
 color_schemes:
   zine_light:

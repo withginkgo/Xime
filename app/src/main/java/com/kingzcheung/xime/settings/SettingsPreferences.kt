@@ -17,10 +17,11 @@ object SettingsPreferences {
     private const val KEY_VIBRATION_ENABLED = "vibration_enabled"
     private const val KEY_VIBRATION_INTENSITY = "vibration_intensity"
     private const val KEY_KEYBOARD_THEME = "keyboard_theme"
-    private const val KEY_SHOW_BOTTOM_BUTTONS = "show_bottom_buttons"
+    private const val KEY_GLASS_EFFECT = "glass_effect"
     
     private const val KEY_SMART_PREDICTION_ENABLED = "smart_prediction_enabled"
     private const val KEY_PREDICTION_MODEL_REPO = "prediction_model_repo"
+    private const val KEY_PREDICTION_SELECTED_MODEL = "prediction_selected_model"
     
     private const val KEY_STT_ENABLED = "stt_enabled"
     private const val KEY_STT_PROVIDER = "stt_provider"
@@ -36,15 +37,24 @@ object SettingsPreferences {
     
     const val KEY_SWIPE_UP_HINTS_ENABLED = "swipe_up_hints_enabled"
     const val KEY_SWIPE_DOWN_HINTS_ENABLED = "swipe_down_hints_enabled"
+    const val KEY_SHOW_PRESS_BUBBLE = "show_press_bubble"
+
+    private const val KEY_MODE_CHANGE_TARGET = "mode_change_target"
+
+    fun getModeChangeTargetIsNumber(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_MODE_CHANGE_TARGET, false)
+    }
+
+    fun setModeChangeTargetIsNumber(context: Context, isNumber: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_MODE_CHANGE_TARGET, isNumber).apply()
+    }
     
     private const val KEY_LAYOUT_PREFIX = "layout_pref_"
     
     private const val KEY_KEYBOARD_HEIGHT_DP = "keyboard_height_dp"
     private const val KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE = "keyboard_height_dp_landscape"
-    const val DEFAULT_KEYBOARD_HEIGHT_DP = 308
-    
-    private const val KEY_KEYBOARD_BOTTOM_PADDING_DP = "keyboard_bottom_padding_dp"
-    private const val DEFAULT_KEYBOARD_BOTTOM_PADDING_DP = 0
+    const val DEFAULT_KEYBOARD_HEIGHT_PERCENT = 35
+    const val DEFAULT_KEYBOARD_HEIGHT_PERCENT_LANDSCAPE = 49
 
     private const val KEY_TOOLBAR_BUTTONS = "toolbar_buttons"
     private val DEFAULT_TOOLBAR_BUTTONS = com.kingzcheung.xime.keyboard.ToolbarButton.DEFAULT_VISIBLE.joinToString(",") { it.id }
@@ -145,7 +155,7 @@ object SettingsPreferences {
     }
     
     fun getSoundVolume(context: Context): Int {
-        return getPrefs(context).getInt(KEY_SOUND_VOLUME, 50)
+        return getPrefs(context).getInt(KEY_SOUND_VOLUME, 20)
     }
     
     fun setSoundVolume(context: Context, volume: Int) {
@@ -161,7 +171,7 @@ object SettingsPreferences {
     }
     
     fun getVibrationIntensity(context: Context): Int {
-        return getPrefs(context).getInt(KEY_VIBRATION_INTENSITY, 50)
+        return getPrefs(context).getInt(KEY_VIBRATION_INTENSITY, 30)
     }
     
     fun setVibrationIntensity(context: Context, intensity: Int) {
@@ -175,13 +185,13 @@ object SettingsPreferences {
     fun setKeyboardTheme(context: Context, themeId: String) {
         getPrefs(context).edit().putString(KEY_KEYBOARD_THEME, themeId).apply()
     }
-    
-    fun showBottomButtons(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_SHOW_BOTTOM_BUTTONS, false)
+
+    fun isGlassEffectEnabled(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_GLASS_EFFECT, false)
     }
-    
-    fun setShowBottomButtons(context: Context, show: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_SHOW_BOTTOM_BUTTONS, show).apply()
+
+    fun setGlassEffectEnabled(context: Context, enabled: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_GLASS_EFFECT, enabled).apply()
     }
     
     fun isPluginEnabled(context: Context, pluginId: String): Boolean {
@@ -215,6 +225,15 @@ object SettingsPreferences {
     
     fun setPredictionModelRepo(context: Context, repo: String) {
         getPrefs(context).edit().putString(KEY_PREDICTION_MODEL_REPO, repo).apply()
+    }
+    
+    fun getPredictionSelectedModel(context: Context): String {
+        return getPrefs(context).getString(KEY_PREDICTION_SELECTED_MODEL, "predictive-text-small")
+            ?: "predictive-text-small"
+    }
+    
+    fun setPredictionSelectedModel(context: Context, modelId: String) {
+        getPrefs(context).edit().putString(KEY_PREDICTION_SELECTED_MODEL, modelId).apply()
     }
     
     fun isSttEnabled(context: Context): Boolean {
@@ -276,9 +295,17 @@ object SettingsPreferences {
     fun isSwipeDownHintsEnabled(context: Context): Boolean {
         return getPrefs(context).getBoolean(KEY_SWIPE_DOWN_HINTS_ENABLED, true)
     }
-    
+
     fun setSwipeDownHintsEnabled(context: Context, enabled: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_SWIPE_DOWN_HINTS_ENABLED, enabled).apply()
+    }
+
+    fun shouldShowPressBubble(context: Context): Boolean {
+        return getPrefs(context).getBoolean(KEY_SHOW_PRESS_BUBBLE, true)
+    }
+
+    fun setShowPressBubble(context: Context, show: Boolean) {
+        getPrefs(context).edit().putBoolean(KEY_SHOW_PRESS_BUBBLE, show).apply()
     }
     
     /** 获取方案偏好的键盘布局，默认全键盘 */
@@ -292,41 +319,39 @@ object SettingsPreferences {
     }
     
     fun getKeyboardHeightDp(context: Context): Int {
-        return getPrefs(context).getInt(KEY_KEYBOARD_HEIGHT_DP, DEFAULT_KEYBOARD_HEIGHT_DP)
+        return getKeyboardHeightDp(context, false)
     }
 
     fun getKeyboardHeightDp(context: Context, isLandscape: Boolean): Int {
         val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
         val alt = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP else KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE
-        // 先读本方向的值，如果没有则用另一个方向的，最后用默认值
-        return getPrefs(context).getInt(key, getPrefs(context).getInt(alt, DEFAULT_KEYBOARD_HEIGHT_DP))
+        val stored = getPrefs(context).getInt(key, -1)
+        if (stored > 0) return stored
+        val altStored = getPrefs(context).getInt(alt, -1)
+        if (altStored > 0) return altStored
+        return getDefaultKeyboardHeightDp(context, isLandscape)
     }
 
-    fun setKeyboardHeightDp(context: Context, heightDp: Int) {
-        getPrefs(context).edit().putInt(KEY_KEYBOARD_HEIGHT_DP, heightDp).apply()
-    }
-
-    fun setKeyboardHeightDp(context: Context, heightDp: Int, isLandscape: Boolean) {
+    fun setKeyboardHeightDp(context: Context, heightDp: Int, isLandscape: Boolean = false) {
         val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
         getPrefs(context).edit().putInt(key, heightDp).apply()
     }
-    
-    fun getDefaultKeyboardHeightDp(): Int = DEFAULT_KEYBOARD_HEIGHT_DP
 
-    fun getOrientationDefaultKeyboardHeightDp(context: Context, isLandscape: Boolean): Int {
-        val key = if (isLandscape) KEY_KEYBOARD_HEIGHT_DP_LANDSCAPE else KEY_KEYBOARD_HEIGHT_DP
-        return getPrefs(context).getInt(key, DEFAULT_KEYBOARD_HEIGHT_DP)
+    fun getDefaultKeyboardHeightDp(context: Context, isLandscape: Boolean = false): Int {
+        val percent = if (isLandscape) DEFAULT_KEYBOARD_HEIGHT_PERCENT_LANDSCAPE else DEFAULT_KEYBOARD_HEIGHT_PERCENT
+        return context.resources.configuration.screenHeightDp * percent / 100
     }
-    
+
+    private const val KEY_KEYBOARD_BOTTOM_PADDING_DP = "keyboard_bottom_padding_dp"
+    private const val DEFAULT_KEYBOARD_BOTTOM_PADDING_DP = 0
+
     fun getKeyboardBottomPaddingDp(context: Context): Int {
         return getPrefs(context).getInt(KEY_KEYBOARD_BOTTOM_PADDING_DP, DEFAULT_KEYBOARD_BOTTOM_PADDING_DP)
     }
-    
+
     fun setKeyboardBottomPaddingDp(context: Context, paddingDp: Int) {
         getPrefs(context).edit().putInt(KEY_KEYBOARD_BOTTOM_PADDING_DP, paddingDp).apply()
     }
-    
-    fun getDefaultKeyboardBottomPaddingDp(): Int = DEFAULT_KEYBOARD_BOTTOM_PADDING_DP
 
     fun getWebDavUrl(context: Context): String {
         return getPrefs(context).getString(KEY_WEBDAV_URL, "") ?: ""
@@ -366,6 +391,45 @@ object SettingsPreferences {
 
     fun setSchemaImportWarningDismissed(context: Context, dismissed: Boolean) {
         getPrefs(context).edit().putBoolean(KEY_SCHEMA_IMPORT_WARNING_DISMISSED, dismissed).apply()
+    }
+
+    // ── 悬浮键盘设置 ──
+
+    private const val KEY_FLOATING_MODE = "floating_mode"
+    private const val KEY_FLOATING_MODE_LANDSCAPE = "floating_mode_landscape"
+    private const val KEY_FLOATING_OFFSET_X = "floating_offset_x"
+    private const val KEY_FLOATING_OFFSET_X_LANDSCAPE = "floating_offset_x_landscape"
+    private const val KEY_FLOATING_OFFSET_Y = "floating_offset_y"
+    private const val KEY_FLOATING_OFFSET_Y_LANDSCAPE = "floating_offset_y_landscape"
+
+    fun isFloatingMode(context: Context, isLandscape: Boolean = false): Boolean {
+        val key = if (isLandscape) KEY_FLOATING_MODE_LANDSCAPE else KEY_FLOATING_MODE
+        return getPrefs(context).getBoolean(key, false)
+    }
+
+    fun setFloatingMode(context: Context, enabled: Boolean, isLandscape: Boolean = false) {
+        val key = if (isLandscape) KEY_FLOATING_MODE_LANDSCAPE else KEY_FLOATING_MODE
+        getPrefs(context).edit().putBoolean(key, enabled).apply()
+    }
+
+    fun getFloatingOffsetX(context: Context, isLandscape: Boolean = false): Int {
+        val key = if (isLandscape) KEY_FLOATING_OFFSET_X_LANDSCAPE else KEY_FLOATING_OFFSET_X
+        return getPrefs(context).getInt(key, 0)
+    }
+
+    fun setFloatingOffsetX(context: Context, offset: Int, isLandscape: Boolean = false) {
+        val key = if (isLandscape) KEY_FLOATING_OFFSET_X_LANDSCAPE else KEY_FLOATING_OFFSET_X
+        getPrefs(context).edit().putInt(key, offset).apply()
+    }
+
+    fun getFloatingOffsetY(context: Context, isLandscape: Boolean = false): Int {
+        val key = if (isLandscape) KEY_FLOATING_OFFSET_Y_LANDSCAPE else KEY_FLOATING_OFFSET_Y
+        return getPrefs(context).getInt(key, 0)
+    }
+
+    fun setFloatingOffsetY(context: Context, offset: Int, isLandscape: Boolean = false) {
+        val key = if (isLandscape) KEY_FLOATING_OFFSET_Y_LANDSCAPE else KEY_FLOATING_OFFSET_Y
+        getPrefs(context).edit().putInt(key, offset).apply()
     }
 
     fun getPageSize(context: Context): Int {

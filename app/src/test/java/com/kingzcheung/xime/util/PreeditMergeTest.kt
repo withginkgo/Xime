@@ -187,6 +187,18 @@ class PreeditMergeTest {
         assertEquals("你好", result)
     }
 
+    @Test
+    fun `space commit merges earlier partial commit ce with candidate shi`() {
+        // 场景：T9 输入"23744" → 右侧选"策"(partial) → 空格上屏第一候选"是"
+        // t9PartialCommitTexts = ["策"], RIME committedText = "是"
+        // 期望上屏："策是"
+        val result = PreeditMergeHelper.mergePartialCommitText(
+            partialTexts = listOf("策"),
+            displayText = "是"
+        )
+        assertEquals("策是", result)
+    }
+
     // ── 以下测试从 PreeditMergeHelperTest.kt 合并至此 ──
 
     @Test

@@ -52,7 +52,7 @@ class T9InputController(
      *  格式：已确认拼音 + 分隔符(') + 数字 ...
      *  例如 "j'43"（5后分词确认j，再输入43）、"ji'482"（左侧选ji后继续输入） */
     var inputBuffer: String by mutableStateOf("")
-        private set
+        internal set
 
     /** 左侧候选区的音节选项列表 */
     var firstOptions: List<T9PinyinMap.SyllableOption> by mutableStateOf(emptyList())
@@ -520,7 +520,7 @@ class T9InputController(
      * 委托给 [onRightCandidateSelected] 并传入 null。
      * 当拼音注释不可用时，回退到基于 [firstSyllableOptions] 消费第一个音节。
      */
-    fun onRightCandidateSelected(): Unit = onRightCandidateSelected(null)
+    fun onRightCandidateSelected(): Boolean = onRightCandidateSelected(null)
 
     /**
      * 处理右侧候选列表选词（partial commit）。
@@ -537,16 +537,27 @@ class T9InputController(
      * - 不调用 sendToRime() — RIME 已有正确状态
      * - 保存快照，使 backspace 能撤销这次操作恢复原始数字序列
      * - 零额外 JNI 调用 — 使用已有的拼音注释数据
+     *
+     * @return 如果本次选词后 inputBuffer 已空，说明输入序列被完整消费，调用方应视为 full commit。
      */
-    fun onRightCandidateSelected(candidatePinyin: String?) {
-        if (inputBuffer.isEmpty()) return
+    fun onRightCandidateSelected(candidatePinyin: String?): Boolean {
+        if (inputBuffer.isEmpty()) return true
 
         // ── 保存快照 ──
         // 计算 consumedDigits 与 remainingAfterCommit，用于撤销时恢复
         val parts = parseInputBuffer(inputBuffer)
         val (consumedDigits, remainingAfterCommit) = if (parts.apostropheIndex >= 0) {
-            // 分隔符前为拼音，分隔符后为数字；RIME 消费 confirmed pinyin，保留数字
-            parts.afterApostrophe to parts.afterApostrophe
+            // 带分隔符时，候选词可能消费 confirmed pinyin 之后的剩余字母。
+            // 用候选拼音字母总数减去 confirmed 字母数，得到剩余段应消费的长度。
+            val candidateLetterCount = candidatePinyin?.count { it.isLetter() } ?: 0
+            val consumedAfter = candidateLetterCount - parts.confirmedPinyin.length
+            if (consumedAfter > 0) {
+                val remaining = parts.afterApostrophe.drop(consumedAfter)
+                parts.afterApostrophe.take(consumedAfter) to remaining
+            } else {
+                // 候选未消费分隔符后内容：保持原有行为
+                parts.afterApostrophe to parts.afterApostrophe
+            }
         } else {
             val segment = parts.digitSegment
             if (segment.isNotEmpty()) {
@@ -575,13 +586,13 @@ class T9InputController(
 
         // Case 1: buffer 含分隔符（已确认拼音 + 剩余数字）
         //   例如 "pi'4" → RIME 消费 "pi"，保留 "4"
-        //   例如 "j'43" → RIME 消费 "j"，保留 "43"
+        //   例如 "k'ge" + 候选 kehu → RIME 消费全部，buffer 清空
         if (parts.apostropheIndex >= 0) {
-            inputBuffer = parts.afterApostrophe
+            inputBuffer = remainingAfterCommit
             leftColumnLocked = false
             updateCandidates(force = true)
             lastRimeInput = inputBuffer
-            return
+            return inputBuffer.isEmpty()
         }
 
         // Case 2: 纯数字段 — 使用候选词拼音注释计算消费位数
@@ -594,7 +605,7 @@ class T9InputController(
             leftColumnLocked = false
             updateCandidates(force = true)
             lastRimeInput = inputBuffer
-            return
+            return inputBuffer.isEmpty()
         }
 
         // Case 3: 纯拼音段（无数字，无分隔符）— RIME 消费全部
@@ -603,6 +614,7 @@ class T9InputController(
         firstOptions = emptyList()
         leftColumnLocked = false
         lastRimeInput = inputBuffer
+        return true
     }
 
     /**
@@ -628,6 +640,25 @@ class T9InputController(
         rightCommitRemainingDirty = false
         separatorConsumedDigits = null
         lastChoiceConsumedDigits = null
+        onReplaceFullPinyin(CLEAR_ALL)
+    }
+
+    /**
+     * 用户按"换行"键提交预编辑文本后调用。
+     * 彻底清空控制器状态并通知服务层清空 partial commit 累积文本，
+     * 防止下一轮输入出现上一轮 partial commit 残留。
+     */
+    fun onEnterCommit() {
+        inputBuffer = ""
+        firstOptions = emptyList()
+        lastRimeInput = null
+        leftColumnLocked = false
+        snapshots.clear()
+        rightCommitRemainingDirty = false
+        separatorConsumedDigits = null
+        lastChoiceConsumedDigits = null
+        cachedDigitSegment = null
+        cachedFirstOptions = emptyList()
         onReplaceFullPinyin(CLEAR_ALL)
     }
 

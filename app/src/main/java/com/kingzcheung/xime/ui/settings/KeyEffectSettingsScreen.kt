@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -32,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.kingzcheung.xime.ui.SettingsSection
 import com.kingzcheung.xime.viewmodel.KeyEffectSettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,6 +46,7 @@ fun KeyEffectSettingsContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
         TopAppBar(
@@ -132,7 +133,7 @@ fun KeyEffectSettingsContent(
                                 value = uiState.soundVolume.toFloat(),
                                 onValueChange = { viewModel.setSoundVolume(it.toInt()) },
                                 valueRange = 0f..100f,
-                                steps = 10
+                                steps = 1
                             )
                         }
                     }
@@ -195,7 +196,7 @@ fun KeyEffectSettingsContent(
                                 value = uiState.vibrationIntensity.toFloat(),
                                 onValueChange = { viewModel.setVibrationIntensity(it.toInt()) },
                                 valueRange = 0f..100f,
-                                steps = 10
+                                steps = 1
                             )
                         }
                     }

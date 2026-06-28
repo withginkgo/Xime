@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
@@ -36,8 +37,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.kingzcheung.xime.settings.SettingsPreferences
-import com.kingzcheung.xime.ui.SettingsSection
-import com.kingzcheung.xime.ui.SettingsToggleItem
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,6 +48,7 @@ fun LayoutDisplaySettingsContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .statusBarsPadding()
             .background(MaterialTheme.colorScheme.background)
     ) {
         TopAppBar(
@@ -164,24 +164,6 @@ fun LayoutDisplaySettingsContent(
             }
 
             item {
-                SettingsSection(title = "键盘布局", content = {
-                    var showBottomButtons by remember {
-                        mutableStateOf(SettingsPreferences.showBottomButtons(context))
-                    }
-                    SettingsToggleItem(
-                        icon = Icons.TwoTone.Straighten,
-                        title = "显示底部按钮",
-                        subtitle = "显示收回键盘和切换输入法按钮（部分系统自带）",
-                        checked = showBottomButtons,
-                        onCheckedChange = { newValue ->
-                            showBottomButtons = newValue
-                            SettingsPreferences.setShowBottomButtons(context, newValue)
-                        }
-                    )
-                })
-            }
-
-            item {
                 SettingsSection(title = "按键手势", content = {
                     var swipeUpEnabled by remember {
                         mutableStateOf(SettingsPreferences.isSwipeUpHintsEnabled(context))
@@ -243,6 +225,40 @@ fun LayoutDisplaySettingsContent(
                             onCheckedChange = { newValue ->
                                 swipeDownEnabled = newValue
                                 SettingsPreferences.setSwipeDownHintsEnabled(context, newValue)
+                            }
+                        )
+                    }
+                    HorizontalDivider(
+                        modifier = Modifier.padding(start = 16.dp),
+                        thickness = 0.5.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                    var showPressBubble by remember {
+                        mutableStateOf(SettingsPreferences.shouldShowPressBubble(context))
+                    }
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "点按弹出气泡",
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "在按键上显示当前按键字符气泡（关闭可减少快速打字卡顿）",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = showPressBubble,
+                            onCheckedChange = { newValue ->
+                                showPressBubble = newValue
+                                SettingsPreferences.setShowPressBubble(context, newValue)
                             }
                         )
                     }

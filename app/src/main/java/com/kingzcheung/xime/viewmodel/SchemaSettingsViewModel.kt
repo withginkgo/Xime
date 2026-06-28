@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.settings.SchemaManager
@@ -147,7 +148,11 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
                 KeysConfigHelper.loadConfig(context)
                 KeyboardThemes.reload(context)
                 val engine = RimeEngine.getInstance()
-                engine.deploy()
+                val deployed = engine.deploy()
+                if (deployed) {
+                    RimeConfigHelper.storeDeploymentHash(context)
+                }
+                deployed
             }
             _uiState.update { it.copy(isDeploying = false) }
             showToast(if (success) "部署完成" else "部署失败")
