@@ -182,6 +182,11 @@ fun KeyboardView(
                 isFloatingMode = state.isFloatingMode,
                 toolbarActions = state.toolbarButtons.mapNotNull { id ->
                     val button = ToolbarButton.fromId(id) ?: return@mapNotNull null
+                    if (button == ToolbarButton.HANDWRITING_LOOKUP) {
+                        val mf = java.io.File(LocalContext.current.filesDir, "ochwpro.onnx")
+                        val cf = java.io.File(LocalContext.current.filesDir, "char_index.json")
+                        if (!mf.exists() || !cf.exists()) return@mapNotNull null
+                    }
                     val onClick: () -> Unit = when (button) {
                         ToolbarButton.EMOJI -> ({ viewModel.showOverlay(OverlayRoute.Emoji) })
                         ToolbarButton.CLIPBOARD -> ({ viewModel.showOverlay(OverlayRoute.Clipboard(0)) })
