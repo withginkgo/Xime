@@ -75,7 +75,11 @@ fun KeyboardView(
     LaunchedEffect(state.inputSessionId) {
         when {
             page !is KeyboardPage.Main -> viewModel.switchMain(MainType.FULL)
-            (page as KeyboardPage.Main).type == MainType.FULL -> viewModel.setKeyboardState(KeyboardLayoutState.Chinese)
+            (page as KeyboardPage.Main).type == MainType.FULL -> {
+                if (keyboardState !is KeyboardLayoutState.Number) {
+                    viewModel.setKeyboardState(initialKeyboardLayoutState(state.isAsciiMode, state.currentSchemaId))
+                }
+            }
         }
     }
 
