@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.twotone.KeyboardCapslock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -239,7 +241,7 @@ fun KeyboardLayout(
             .drawWithContent {
                 drawContent()
                 bubbleData?.let { drawSwipeBubble(it) }
-            }.padding(bottom = if (uiState.isFloatingMode) {0.dp} else {10.dp})
+            }            .padding(bottom = if (uiState.isFloatingMode || isLandscape) {0.dp} else {10.dp})
     ) {
         if (isLandscape) {
             LandscapeKeyboardContent(
@@ -1179,11 +1181,14 @@ private fun LandscapeKeyboardContent(
         }
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = 6.dp, horizontal = 50.dp)
+    CompositionLocalProvider(
+        LocalKeyVisualPadding provides PaddingValues(horizontal = 1.dp, vertical = 2.dp)
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 2.dp, horizontal = 50.dp)
+        ) {
         // ========== 左面板 ==========
         Column(
             modifier = Modifier
@@ -1283,7 +1288,7 @@ private fun LandscapeKeyboardContent(
                     onKeyPressDown = onKeyPressDown,
                     backgroundColor = specialKeyBackgroundColor,
                     iconColor = keyTextColor,
-                    modifier = Modifier.padding(2.dp,4.dp).weight(1.2f),
+                    modifier = Modifier.padding(1.dp,2.dp).weight(1.2f),
                         shadowEnabled = shadowEnabled,
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
@@ -1439,11 +1444,9 @@ private fun LandscapeKeyboardContent(
                     backgroundColor = specialKeyBackgroundColor,
                     iconColor = keyTextColor,
                     modifier = Modifier
-                        .padding(2.dp)
+                        .padding(1.dp)
                         .width(48.dp)
                         .fillMaxHeight(),
-                    swipeText = "",
-                    onSwipe = { onKeyPress("clear_composition") },
                     onLongClick = { onKeyPress("delete") },
                     onPress = { onKeyPressDown?.invoke("delete") },
                     onRelease = { onKeyRelease?.invoke("delete") },
@@ -1556,6 +1559,7 @@ private fun LandscapeKeyboardContent(
                 )
             }
         }
+    }
     }
 }
 
@@ -1831,7 +1835,7 @@ fun CompactSwipeableKeyButton(
             .onGloballyPositioned { coordinates ->
                 buttonBounds = coordinates.boundsInRoot()
             }
-            .padding(horizontal = 2.dp, vertical = 3.dp)
+            .padding(LocalKeyVisualPadding.current)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(if (isPressed) darkenColor(backgroundColor) else backgroundColor),
@@ -2020,6 +2024,7 @@ private fun SplitSpaceKey(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .padding(LocalKeyVisualPadding.current)
             .then(shadowModifier)
             .clip(shadowShape)
             .background(backgroundColor)
