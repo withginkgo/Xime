@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -64,10 +65,9 @@ fun NumberKeyboardLayout(
 ) {
 
     val configuration = LocalConfiguration.current
-    val isLandscape =
-        configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = !isFloatingMode && configuration.screenWidthDp > configuration.screenHeightDp
     val commonSymbols = listOf(
-        "~", "!", "#", "$", "%", "^", "&", "*",
+        "~", "!", "#", "$", "%", "^", "&", "?",
         "(", ")", "_", "=", "[", "]", "{", "}",
         "\\", "|", ";", ":", "'", "\"", "<", ">"
     )
@@ -96,21 +96,22 @@ fun NumberKeyboardLayout(
                 drawContent()
                 bubbleData?.let { drawSwipeBubble(it) }
             }
-            .padding(bottom = if (isFloatingMode) 0.dp else 10.dp)) {
+            .padding(bottom = if (isFloatingMode || isLandscape) 0.dp else 10.dp)) {
         if (isLandscape) {
-            // 横屏：左侧常用符号区 + 右侧数字键盘
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = 8.dp, horizontal = 50.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(vertical = 2.dp, horizontal = 50.dp),
             ) {
-                // 左侧：常用符号区（6列 × 5行）
+                // 左侧：常用符号区（6列 × 4行）
                 Column(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(0.42f)
                         .fillMaxHeight(),
                 ) {
+                    CompositionLocalProvider(
+                        LocalKeyVisualPadding provides PaddingValues(horizontal = 1.dp, vertical = 2.dp)
+                    ) {
                     commonSymbols.chunked(6).forEach { rowSymbols ->
                         Row(
                             modifier = Modifier
@@ -128,6 +129,7 @@ fun NumberKeyboardLayout(
                                     shadowEnabled = shadowEnabled,
                                     shadowElevation = shadowElevation,
                                     shadowShapeRadius = shadowShapeRadius,
+                                    fontSize = 14.sp,
                                 )
                             }
                             repeat(6 - rowSymbols.size) {
@@ -135,16 +137,19 @@ fun NumberKeyboardLayout(
                             }
                         }
                     }
+                    }
                 }
+
+                Spacer(modifier = Modifier.weight(0.16f))
 
                 // 右侧：数字键盘（与竖屏完全一致）
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(0.42f)
                         .fillMaxHeight()
                 ) {
                     CompositionLocalProvider(
-                        LocalKeyVisualPadding provides PaddingValues(horizontal = 2.dp, vertical = 2.dp)
+                        LocalKeyVisualPadding provides PaddingValues(horizontal = 1.dp, vertical = 2.dp)
                     ) {
                     NumberRows(
                         onKeyPress = onKeyPress,
@@ -155,6 +160,7 @@ fun NumberKeyboardLayout(
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
                         onKeyPressDown = onKeyPressDown,
+                        compactMode = true,
                         onSwipeStateChange = { state, bounds ->
                             val newState = if (state.isSwipeDown && state.swipeText != null) {
                                 state.copy(charInfos = SubcharHelper.parseSwipeDownText(state.swipeText))
@@ -221,8 +227,12 @@ private fun NumberRows(
     shadowElevation: Dp = 1.dp,
     shadowShapeRadius: Dp = 8.dp,
     onKeyPressDown: ((String) -> Unit)? = null,
-    onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null
+    onSwipeStateChange: ((SwipeState, Rect) -> Unit)? = null,
+    compactMode: Boolean = false,
 ) {
+    val symFontSize = if (compactMode) 14.sp else 18.sp
+    val keyFontSize = if (compactMode) 16.sp else androidx.compose.ui.unit.TextUnit.Unspecified
+    val ctrlFontSize = if (compactMode) 12.sp else androidx.compose.ui.unit.TextUnit.Unspecified
     val suppressCursorMove = LocalSuppressCursorMove.current
     val symbols = listOf("+", "-", "*", "/")
     Column(
@@ -263,7 +273,8 @@ private fun NumberRows(
                                 modifier = Modifier.weight(1f),
                                 onPress = { onKeyPressDown?.invoke(symbol) },
                                 isFirst = symbol == "+",
-                                isLast = symbol == "/"
+                                isLast = symbol == "/",
+                                fontSize = symFontSize,
                             )
                         }
                     }
@@ -308,7 +319,8 @@ private fun NumberRows(
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .weight(1f),
+                                fontSize = keyFontSize,
                             )
                         }
 
@@ -330,16 +342,19 @@ private fun NumberRows(
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .weight(1f),
+                                fontSize = keyFontSize,
                             )
                         }
 
                     }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
                     ) {
+
                         listOf("7", "8", "9").forEach { key ->
                             KeyButton(
                                 text = key,
@@ -352,6 +367,7 @@ private fun NumberRows(
                                 shadowEnabled = shadowEnabled,
                                 shadowElevation = shadowElevation,
                                 shadowShapeRadius = shadowShapeRadius,
+                                fontSize = keyFontSize,
                             )
                         }
 
@@ -373,6 +389,7 @@ private fun NumberRows(
                             shadowEnabled = shadowEnabled,
                             shadowElevation = shadowElevation,
                             shadowShapeRadius = shadowShapeRadius,
+                            fontSize = ctrlFontSize,
                         )
                         KeyButton(
                             text = "0",
@@ -384,6 +401,7 @@ private fun NumberRows(
                             shadowEnabled = shadowEnabled,
                             shadowElevation = shadowElevation,
                             shadowShapeRadius = shadowShapeRadius,
+                            fontSize = keyFontSize,
                         )
                         KeyButton(
                             text = ".",
@@ -395,6 +413,7 @@ private fun NumberRows(
                             shadowEnabled = shadowEnabled,
                             shadowElevation = shadowElevation,
                             shadowShapeRadius = shadowShapeRadius,
+                            fontSize = keyFontSize,
                         )
 
                     }
@@ -439,6 +458,7 @@ private fun NumberRows(
                         shadowEnabled = shadowEnabled,
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
+                        fontSize = ctrlFontSize,
                     )
                     IconKeyButton(
                         icon = rememberVectorPainter(Icons.Default.EmojiEmotions),
@@ -461,10 +481,10 @@ private fun NumberRows(
                         shadowEnabled = shadowEnabled,
                         shadowElevation = shadowElevation,
                         shadowShapeRadius = shadowShapeRadius,
+                        fontSize = ctrlFontSize,
                     )
                 }
             }
-
         }
     }
 }
@@ -478,7 +498,8 @@ private fun NumberSymbolKey(
     modifier: Modifier = Modifier,
     onPress: (() -> Unit)? = null,
     isFirst: Boolean = false,
-    isLast: Boolean = false
+    isLast: Boolean = false,
+    fontSize: androidx.compose.ui.unit.TextUnit = 18.sp,
 ) {
     var isPressed by remember { mutableStateOf(false) }
     val currentOnClick by rememberUpdatedState(onClick)
@@ -506,7 +527,7 @@ private fun NumberSymbolKey(
         Text(
             text = text,
             color = textColor,
-            fontSize = 18.sp,
+            fontSize = fontSize,
             fontWeight = FontWeight.Normal,
             modifier = Modifier.padding(vertical = 2.dp)
         )
