@@ -490,7 +490,7 @@ fun T9KeyboardLayout(
                     KeyButton(
                         text = "123",
                         onClick = { onKeyPress("number") },
-                        backgroundColor = specialKeyBackgroundColor,
+                        backgroundColor = keyBackgroundColor,
                         textColor = keyTextColor,
                         modifier = Modifier.padding(2.dp).weight(1f),
                         onPress = { onKeyPressDown?.invoke("mode_change") },
