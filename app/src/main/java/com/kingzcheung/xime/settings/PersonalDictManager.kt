@@ -73,7 +73,35 @@ use_preset_vocabulary: false
                 applyPackConfig(rimeDir, schemaId)
             else
                 applyMergedDictConfig(rimeDir, schemaId)
+            // 所有方案都添加自定义短语翻译器
+            applyCustomPhraseTranslator(rimeDir, schemaId)
         }
+    }
+
+    // 为方案添加 custom_phrase 翻译器（独立于主词典音节表）
+    internal fun applyCustomPhraseTranslator(rimeDir: java.io.File, schemaId: String) {
+        val customFile = java.io.File(rimeDir, "${schemaId}.custom.yaml")
+        if (customFile.exists()) {
+            val text = customFile.readText(Charsets.UTF_8)
+            if (text.contains("table_translator@custom_phrase")) return
+        }
+        val existing = if (customFile.exists()) {
+            customFile.readText(Charsets.UTF_8).trimEnd('\n', '\r', ' ')
+        } else ""
+        // remove trailing "..." if exists from old patch
+        val base = existing.removeSuffix("...").trimEnd('\n', '\r', ' ')
+        val newContent = """$base
+  "engine/translators/+":
+    - table_translator@custom_phrase
+  "custom_phrase":
+    dictionary: ""
+    user_dict: custom_phrase
+    db_class: stabledb
+    enable_completion: false
+    enable_sentence: false
+    initial_quality: 99
+"""
+        customFile.writeText(newContent, Charsets.UTF_8)
     }
 
     internal fun hasSpellerAlgebra(schemaFile: java.io.File): Boolean {
@@ -138,6 +166,7 @@ patch:
 
     fun saveEntries(context: Context, schemaId: String, entries: List<DictEntry>) {
         val file = getPackFile(context, schemaId)
+        file.parentFile?.mkdirs()
         val defaultH = packHeader(schemaId)
         val header = if (file.exists()) extractHeader(file, defaultH) else defaultH
         file.writeText(buildDictText(header, entries), Charsets.UTF_8)
@@ -150,9 +179,9 @@ patch:
             val line = raw.trim()
             if (!inData) { if (line == "...") inData = true; continue }
             if (line.isEmpty() || line.startsWith("#")) continue
-            val tabIdx = line.indexOf('\t')
-            if (tabIdx >= 0) {
-                out.add(DictEntry(line.substring(0, tabIdx), line.substring(tabIdx + 1)))
+            val parts = line.split('\t')
+            if (parts.size >= 2) {
+                out.add(DictEntry(parts[0], parts[1], parts.getOrNull(2)?.toIntOrNull()))
             } else {
                 val spaceIdx = line.indexOf(' ')
                 if (spaceIdx >= 0) {
@@ -166,7 +195,11 @@ patch:
     internal fun buildDictText(header: String, entries: List<DictEntry>): String {
         val sb = StringBuilder()
         sb.append(header.trimEnd('\n', '\r')).append('\n')
-        for (e in entries) sb.append(e.word).append('\t').append(e.code).append('\n')
+        for (e in entries) {
+            sb.append(e.word).append('\t').append(e.code)
+            if (e.weight != null) sb.append('\t').append(e.weight)
+            sb.append('\n')
+        }
         return sb.toString()
     }
 
@@ -186,31 +219,31 @@ patch:
     }
 
     // ── 自定义短语 ──
+    // custom_phrase.txt 通过独立的 table_translator 加载（db_class: stabledb），
+    // 不走主词典音节表，任意编码在所有方案中均可使用。
 
     fun loadCustomPhrases(context: Context): List<DictEntry> {
         val file = getCustomPhraseFile(context)
         if (!file.exists()) return emptyList()
-        return try { parseCustomPhraseText(file.readText(Charsets.UTF_8)) } catch (_: Exception) { emptyList() }
+        return try {
+            parseStableDbEntries(file.readText(Charsets.UTF_8))
+        } catch (_: Exception) { emptyList() }
     }
 
     fun saveCustomPhrases(context: Context, entries: List<DictEntry>) {
         val file = getCustomPhraseFile(context)
-        val header = extractCustomPhraseHeader(file)
-        file.writeText(buildCustomPhraseText(header, entries), Charsets.UTF_8)
+        file.parentFile?.mkdirs()
+        file.writeText(buildStableDbText(STABLEDB_HEADER, entries), Charsets.UTF_8)
     }
 
-    fun saveEntriesDirect(headerText: String, entries: List<DictEntry>): String {
-        val sb = StringBuilder()
-        sb.append(headerText.trimEnd('\n', '\r')).append('\n')
-        for (e in entries) {
-            sb.append(e.word).append('\t').append(e.code)
-            if (e.weight != null) sb.append('\t').append(e.weight)
-            sb.append('\n')
-        }
-        return sb.toString()
-    }
+    private const val STABLEDB_HEADER = """# Rime table
+# coding: utf-8
+#@/db_name	custom_phrase
+#@/db_type	tabledb
+#
+"""
 
-    fun parseCustomPhraseText(text: String): List<DictEntry> {
+    internal fun parseStableDbEntries(text: String): List<DictEntry> {
         val out = mutableListOf<DictEntry>()
         for (raw in text.lineSequence()) {
             val line = raw.trim()
@@ -223,29 +256,14 @@ patch:
         return out
     }
 
-    fun buildCustomPhraseText(header: String, entries: List<DictEntry>): String {
-        return saveEntriesDirect(header, entries)
-    }
-
-    internal fun extractCustomPhraseHeader(file: File): String {
-        val default = """# Rime table
-# coding: utf-8
-#@/db_name	custom_phrase
-#@/db_type	tabledb
-#
-"""
-        if (!file.exists()) return default
-        return try {
-            val text = file.readText(Charsets.UTF_8)
-            val sb = StringBuilder()
-            for (raw in text.lineSequence()) {
-                if (raw.trim().isEmpty()) continue
-                if (!raw.startsWith("#")) break
-                sb.append(raw).append('\n')
-            }
-            sb.append("""#
-""")
-            sb.toString()
-        } catch (_: Exception) { default }
+    internal fun buildStableDbText(header: String, entries: List<DictEntry>): String {
+        val sb = StringBuilder()
+        sb.append(header.trimEnd('\n', '\r')).append('\n')
+        for (e in entries) {
+            sb.append(e.word).append('\t').append(e.code)
+            if (e.weight != null) sb.append('\t').append(e.weight)
+            sb.append('\n')
+        }
+        return sb.toString()
     }
 }

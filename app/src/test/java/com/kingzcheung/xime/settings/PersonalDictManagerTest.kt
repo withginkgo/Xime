@@ -1,10 +1,20 @@
 package com.kingzcheung.xime.settings
 
+import android.content.Context
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.mock
 import java.io.File
+
+private fun mockContext(): Context {
+    val tmpDir = File.createTempFile("mock_context", "").apply { delete(); mkdirs() }
+    return mock {
+        on { filesDir } doReturn tmpDir
+    }
+}
 
 class PersonalDictManagerTest {
 
@@ -142,7 +152,7 @@ use_preset_vocabulary: false
             DictEntry("你好", "ni hao"),
             DictEntry("世界", "shi jie")
         )
-        PersonalDictManager.saveEntriesDirect(defaultHeader, originalEntries).let { file.writeText(it, Charsets.UTF_8) }
+        PersonalDictManager.buildDictText(defaultHeader, originalEntries).let { file.writeText(it, Charsets.UTF_8) }
         val newHeader = PersonalDictManager.extractHeader(file, defaultHeader)
         assertEquals(defaultHeader, newHeader)
         val parsed = PersonalDictManager.parsePersonalDictEntries(file.readText(Charsets.UTF_8))
@@ -240,9 +250,9 @@ use_preset_vocabulary: false
     }
 
     @Test
-    fun `saveEntriesDirect generates correct output`() {
+    fun `buildDictText generates correct output`() {
         val entries = listOf(DictEntry("你好", "ni hao"))
-        val result = PersonalDictManager.saveEntriesDirect(defaultHeader, entries)
+        val result = PersonalDictManager.buildDictText(defaultHeader, entries)
         assertEquals("""# Rime dict
 ---
 name: user_simp_pinyin
@@ -265,7 +275,7 @@ use_preset_vocabulary: false
         val file = File.createTempFile("personal_dict_multi", ".tmp")
         file.deleteOnExit()
         val entries1 = listOf(DictEntry("a", "b"))
-        PersonalDictManager.saveEntriesDirect(defaultHeader, entries1).let { file.writeText(it, Charsets.UTF_8) }
+        PersonalDictManager.buildDictText(defaultHeader, entries1).let { file.writeText(it, Charsets.UTF_8) }
         val h1 = PersonalDictManager.extractHeader(file, defaultHeader)
         val entries2 = listOf(DictEntry("a", "b"), DictEntry("c", "d"))
         PersonalDictManager.buildDictText(h1, entries2).let { file.writeText(it, Charsets.UTF_8) }
@@ -289,7 +299,7 @@ use_preset_vocabulary: false
 
     // ── 自定义短语 ──
 
-    private val phraseHeader = """# Rime table
+    private val stubHeader = """# Rime table
 # coding: utf-8
 #@/db_name	custom_phrase
 #@/db_type	tabledb
@@ -297,13 +307,16 @@ use_preset_vocabulary: false
 """
 
     @Test
-    fun `parseCustomPhraseText reads entries skipping header`() {
+    fun `parseStableDbEntries reads entries skipping header`() {
         val text = """# Rime table
+# coding: utf-8
+#@/db_name	custom_phrase
+#@/db_type	tabledb
 #
 测试	ce shi
 词条	ci tiao
 """
-        val result = PersonalDictManager.parseCustomPhraseText(text)
+        val result = PersonalDictManager.parseStableDbEntries(text)
         assertEquals(
             listOf(DictEntry("测试", "ce shi"), DictEntry("词条", "ci tiao")),
             result
@@ -311,117 +324,93 @@ use_preset_vocabulary: false
     }
 
     @Test
-    fun `parseCustomPhraseText ignores comment lines`() {
-        val text = """# header
-# another comment
-a	b
+    fun `parseStableDbEntries reads weight field`() {
+        val text = """#
+a	b	99
 """
-        assertEquals(
-            listOf(DictEntry("a", "b")),
-            PersonalDictManager.parseCustomPhraseText(text)
-        )
+        val result = PersonalDictManager.parseStableDbEntries(text)
+        assertEquals(listOf(DictEntry("a", "b", 99)), result)
     }
 
     @Test
-    fun `parseCustomPhraseText returns empty for header-only`() {
-        val text = """# Rime table
-#
+    fun `parseStableDbEntries handles optional weight`() {
+        val text = """#
+a	b	99
+c	d
 """
-        assertTrue(PersonalDictManager.parseCustomPhraseText(text).isEmpty())
+        val result = PersonalDictManager.parseStableDbEntries(text)
+        assertEquals(listOf(DictEntry("a", "b", 99), DictEntry("c", "d")), result)
     }
 
     @Test
-    fun `buildCustomPhraseText preserves header and appends entries`() {
+    fun `buildStableDbText preserves header and appends entries`() {
         val entries = listOf(
             DictEntry("联系一下", "lxyx"),
             DictEntry("等等", "dd")
         )
-        val result = PersonalDictManager.buildCustomPhraseText(phraseHeader, entries)
+        val result = PersonalDictManager.buildStableDbText(stubHeader, entries)
         assertTrue(result.startsWith("# Rime table"))
         assertTrue(result.contains("联系一下\tlxyx\n"))
         assertTrue(result.contains("等等\tdd\n"))
     }
 
     @Test
-    fun `buildCustomPhraseText handles empty entries`() {
-        val result = PersonalDictManager.buildCustomPhraseText(phraseHeader, emptyList())
-        assertEquals(phraseHeader.trimEnd() + "\n", result)
-    }
-
-    @Test
-    fun `custom phrase round trip preserves entries`() {
-        val original = listOf(
-            DictEntry("联系一下", "lxyx"),
-            DictEntry("不知道", "bzd"),
-            DictEntry("kingcheung@gmail.com", "lxyx")
-        )
-        val text = PersonalDictManager.buildCustomPhraseText(phraseHeader, original)
-        val parsed = PersonalDictManager.parseCustomPhraseText(text)
-        assertEquals(original, parsed)
-    }
-
-    @Test
-    fun `parseCustomPhraseText reads weight field`() {
-        val text = """#
-a	b	99
-"""
-        val result = PersonalDictManager.parseCustomPhraseText(text)
-        assertEquals(listOf(DictEntry("a", "b", 99)), result)
-    }
-
-    @Test
-    fun `parseCustomPhraseText handles optional weight`() {
-        val text = """#
-a	b	99
-c	d
-"""
-        val result = PersonalDictManager.parseCustomPhraseText(text)
-        assertEquals(listOf(DictEntry("a", "b", 99), DictEntry("c", "d")), result)
-    }
-
-    @Test
-    fun `buildCustomPhraseText includes weight when present`() {
+    fun `buildStableDbText includes weight when present`() {
         val entries = listOf(DictEntry("a", "b", 99))
-        val result = PersonalDictManager.buildCustomPhraseText(phraseHeader, entries)
+        val result = PersonalDictManager.buildStableDbText(stubHeader, entries)
         assertTrue(result.contains("a\tb\t99\n"))
     }
 
     @Test
-    fun `buildCustomPhraseText omits weight when null`() {
+    fun `buildStableDbText omits weight when null`() {
         val entries = listOf(DictEntry("a", "b"))
-        val result = PersonalDictManager.buildCustomPhraseText(phraseHeader, entries)
+        val result = PersonalDictManager.buildStableDbText(stubHeader, entries)
         assertTrue(result.contains("a\tb\n"))
     }
 
     @Test
-    fun `round trip preserves weight`() {
+    fun `stabledb round trip preserves weight`() {
         val original = listOf(DictEntry("联系一下", "lxyx", 99))
-        val text = PersonalDictManager.buildCustomPhraseText(phraseHeader, original)
-        val parsed = PersonalDictManager.parseCustomPhraseText(text)
+        val text = PersonalDictManager.buildStableDbText(stubHeader, original)
+        val parsed = PersonalDictManager.parseStableDbEntries(text)
         assertEquals(original, parsed)
     }
 
     @Test
-    fun `extractCustomPhraseHeader extracts header lines`() {
-        val text = """# Rime table
-# coding: utf-8
-#@/db_name	custom_phrase
-#
-a	b
-"""
-        val file = createTempFile(text)
-        val result = PersonalDictManager.extractCustomPhraseHeader(file)
-        assertTrue(result.startsWith("# Rime table"))
-        assertTrue(result.endsWith("""#
-"""))
+    fun `loadCustomPhrases when file missing returns empty`() {
+        val context = mockContext()
+        assertTrue(PersonalDictManager.loadCustomPhrases(context).isEmpty())
     }
 
     @Test
-    fun `extractCustomPhraseHeader returns default for non-existent file`() {
-        val file = File.createTempFile("test_nonexistent", ".tmp")
-        file.delete()
-        val result = PersonalDictManager.extractCustomPhraseHeader(file)
-        assertEquals(phraseHeader, result)
+    fun `saveCustomPhrases writes to custom_phrase dot txt`() {
+        val context = mockContext()
+        val entries = listOf(DictEntry("kingzcheung@gmail.com", "yxdz", 99))
+        PersonalDictManager.saveCustomPhrases(context, entries)
+        val file = PersonalDictManager.getCustomPhraseFile(context)
+        assertTrue(file.exists())
+        val loaded = PersonalDictManager.parseStableDbEntries(file.readText(Charsets.UTF_8))
+        assertTrue(loaded.any { it.word == "kingzcheung@gmail.com" })
+    }
+
+    @Test
+    fun `applyCustomPhraseTranslator adds translator to custom yaml`() {
+        val rimeDir = createTempDir()
+        PersonalDictManager.applyCustomPhraseTranslator(rimeDir, "wubi86")
+        val customFile = File(rimeDir, "wubi86.custom.yaml")
+        assertTrue(customFile.exists())
+        val text = customFile.readText(Charsets.UTF_8)
+        assertTrue(text.contains("table_translator@custom_phrase"))
+        assertTrue(text.contains("db_class: stabledb"))
+    }
+
+    @Test
+    fun `applyCustomPhraseTranslator is idempotent`() {
+        val rimeDir = createTempDir()
+        PersonalDictManager.applyCustomPhraseTranslator(rimeDir, "wubi86")
+        PersonalDictManager.applyCustomPhraseTranslator(rimeDir, "wubi86")
+        val text = File(rimeDir, "wubi86.custom.yaml").readText(Charsets.UTF_8)
+        assertEquals(1, text.split("table_translator@custom_phrase").size - 1)
     }
 
     // ── 方案补丁 ──
