@@ -202,6 +202,10 @@ private fun parseGestureNode(node: com.charleskorn.kaml.YamlNode): GestureDef {
                     val vStr = (v as? YamlScalar)?.content ?: continue
                     display = vStr
                 }
+                "send" -> {
+                    val vStr = (v as? YamlScalar)?.content ?: continue
+                    action = GestureAction.SEND_KEY; value = vStr
+                }
             }
         }
         return GestureDef(label = label, labels = labels, action = action, value = value, display = DisplayMode.fromValue(display))
